@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  APPLICANT
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+model User {
+  id                String            @id @default(uuid()) @db.Uuid
+  fullName          String            @map("full_name") @db.VarChar(120)
+  email             String            @unique @db.VarChar(255)
+  passwordHash      String            @map("password_hash") @db.Text
+  role              UserRole          @default(APPLICANT)
+  status            UserStatus        @default(ACTIVE)
+  passwordChangedAt DateTime?         @map("password_changed_at") @db.Timestamptz()
+  lastLoginAt       DateTime?         @map("last_login_at") @db.Timestamptz()
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt         DateTime          @updatedAt @map("updated_at") @db.Timestamptz()
+
+  profile           ApplicantProfile?
+  sessions          Session[]
+
+  @@index([role, status])
+  @@map("users")
+}
+
+model ApplicantProfile {
+  userId                    String    @id @map("user_id") @db.Uuid
+  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phone                     String?   @db.VarChar(25)
+  currentLocation           String?   @map("current_location") @db.VarChar(160)
+  highestQualification      String?   @map("highest_qualification") @db.VarChar(120)
+  collegeUniversity         String?   @map("college_university") @db.VarChar(180)
+  graduationYear            Int?      @map("graduation_year") @db.SmallInt
+  technicalSkills           String[]  @map("technical_skills")
+  totalExperienceYears      Decimal?  @map("total_experience_years") @db.Decimal(4, 1)
+  currentOrPreviousEmployer String?   @map("current_or_previous_employer") @db.VarChar(180)
+  linkedinUrl               String?   @map("linkedin_url") @db.Text
+  githubUrl                 String?   @map("github_url") @db.Text
+  portfolioUrl              String?   @map("portfolio_url") @db.Text
+  createdAt                 DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt                 DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@map("applicant_profiles")
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String    @unique @map("refresh_token_hash") @db.Text
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz()
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz()
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ==========================================
+// Phase 3 Enums (SRS Section 3, 10 & 12)
+// ==========================================
+enum JobStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+}
+
+enum WorkMode {
+  ON_SITE
+  HYBRID
+  REMOTE
+}
+
+enum EnquiryStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+}
+
+// ==========================================
+// 1. Company Profile (SRS Section 1.3, 3.1 & 10.1)
+// ==========================================
+model CompanyProfile {
+  id                   String   @id @default(uuid()) @db.Uuid
+  companyName          String   @map("company_name") @db.VarChar(160)
+  logoUrl              String?  @map("logo_url") @db.Text
+  shortDescription     String   @map("short_description") @db.VarChar(500)
+  about                String   @db.Text
+  mission              String   @db.Text
+  vision               String   @db.Text
+  areasOfExpertise     String[] @default([]) @map("areas_of_expertise")
+  businessCapabilities String[] @default([]) @map("business_capabilities")
+  email                String   @db.VarChar(255)
+  careersEmail         String?  @map("careers_email") @db.VarChar(255)
+  phone                String   @db.VarChar(60)
+  secondaryPhone       String?  @map("secondary_phone") @db.VarChar(60)
+  address              String   @db.Text
+  operatingHours       String?  @map("operating_hours") @db.VarChar(255)
+  websiteUrl           String?  @map("website_url") @db.VarChar(255)
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@map("company_profiles")
+}
+
+// ==========================================
+// 2. Company Services Catalog (SRS Section 3.3 & 10.5)
+// ==========================================
+model Service {
+  id               String   @id @default(uuid()) @db.Uuid
+  title            String   @db.VarChar(160)
+  slug             String   @unique @db.VarChar(180)
+  category         String   @db.VarChar(100)
+  shortDescription String   @map("short_description") @db.VarChar(320)
+  fullDescription  String?  @map("full_description") @db.Text
+  capabilities     String[] @default([])
+  techStack        String[] @default([]) @map("tech_stack")
+  iconName         String?  @map("icon_name") @db.VarChar(60)
+  imageUrl         String?  @map("image_url") @db.Text
+  displayOrder     Int      @default(0) @map("display_order") @db.SmallInt
+  isPublished      Boolean  @default(false) @map("is_published")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@index([isPublished, displayOrder])
+  @@map("services")
+}
+
+// ==========================================
+// 3. Job Postings / Vacancies (SRS Section 3.4, 3.5 & 10.2)
+// ==========================================
+model Job {
+  id                     String         @id @default(uuid()) @db.Uuid
+  jobCode                String         @unique @map("job_code") @db.VarChar(50)
+  title                  String         @db.VarChar(180)
+  department             String         @db.VarChar(120)
+  location               String         @db.VarChar(140)
+  employmentType         EmploymentType @default(FULL_TIME) @map("employment_type")
+  workMode               WorkMode       @default(HYBRID) @map("work_mode")
+  experienceRequired     String         @map("experience_required") @db.VarChar(80)
+  salaryRange            String?        @map("salary_range") @db.VarChar(100)
+  description            String         @db.Text
+  responsibilities       String[]       @default([])
+  requiredQualifications String[]       @default([]) @map("required_qualifications")
+  requiredSkills         String[]       @default([]) @map("required_skills")
+  preferredSkills        String[]       @default([]) @map("preferred_skills")
+  numberOfOpenings       Int?           @default(1) @map("number_of_openings") @db.SmallInt
+  applicationDeadline    DateTime?      @map("application_deadline") @db.Timestamptz()
+  status                 JobStatus      @default(DRAFT)
+  isFeatured             Boolean        @default(false) @map("is_featured")
+  publishedAt            DateTime?      @map("published_at") @db.Timestamptz()
+  createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt              DateTime       @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@index([status, applicationDeadline])
+  @@index([department, workMode])
+  @@map("jobs")
+}
+
+// ==========================================
+// 4. Contact Enquiries (SRS Section 3.6 & 10.6)
+// ==========================================
+model ContactEnquiry {
+  id         String        @id @default(uuid()) @db.Uuid
+  fullName   String        @map("full_name") @db.VarChar(120)
+  email      String        @db.VarChar(255)
+  phone      String?       @db.VarChar(30)
+  subject    String        @db.VarChar(200)
+  message    String        @db.Text
+  status     EnquiryStatus @default(NEW)
+  adminNotes String?       @map("admin_notes") @db.Text
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt  DateTime      @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@index([status, createdAt])
+  @@map("contact_enquiries")
+}
+
