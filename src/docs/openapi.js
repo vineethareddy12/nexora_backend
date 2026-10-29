@@ -19,6 +19,10 @@ export const openApiSpec = {
   },
   servers: [
     {
+      url: process.env.RENDER_EXTERNAL_URL || 'https://nexora-backend-uqvc.onrender.com',
+      description: 'Production Server',
+    },
+    {
       url: `http://localhost:${env.PORT}`,
       description: 'Local Development Server',
     },

@@ -8,6 +8,8 @@ export const configureCors = () => {
   const allowedOrigins = [
     env.CLIENT_URL,
     env.API_DOCS_URL,
+    process.env.RENDER_EXTERNAL_URL,
+    'https://nexora-backend-uqvc.onrender.com',
     'http://localhost:5173',
     'http://127.0.0.1:5173',
     'http://localhost:4000',
