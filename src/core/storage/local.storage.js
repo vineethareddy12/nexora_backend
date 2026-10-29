@@ -3,13 +3,14 @@ import fsSync from 'fs';
 import path from 'path';
 import { env } from '../config/env.js';
 import { AppError } from '../errors/AppError.js';
-import { validateStorageKey, validateImageSignature } from './validation.js';
+import { validateStorageKey, validateImageSignature, validateDocumentStorageKey } from './validation.js';
 
 export class LocalStorageProvider {
   constructor() {
     this.storageRoot = path.resolve(process.cwd(), env.LOCAL_STORAGE_DIR || './storage');
     this.logosDir = path.join(this.storageRoot, 'logos');
     this.companyLogosDir = path.join(this.logosDir, 'company');
+    this.documentsDir = path.join(this.storageRoot, 'documents');
   }
 
   /**
@@ -18,6 +19,7 @@ export class LocalStorageProvider {
   async init() {
     try {
       await fs.mkdir(this.companyLogosDir, { recursive: true });
+      await fs.mkdir(this.documentsDir, { recursive: true });
     } catch (err) {
       console.error('[LocalStorageProvider] Failed to create storage directories:', err);
       throw err;
@@ -173,5 +175,96 @@ export class LocalStorageProvider {
       contentType: mime,
     };
   }
+
+  // ==========================================
+  // Document Operations (Phase 1)
+  // ==========================================
+
+  /**
+   * Resolves a document storage key strictly beneath this.documentsDir
+   */
+  resolveDocumentPath(storageKey) {
+    validateDocumentStorageKey(storageKey);
+
+    // storageKey is e.g. "documents/<userId>/<uuid>.<ext>"
+    // Strip leading "documents/"
+    const relativePart = storageKey.startsWith('documents/') ? storageKey.slice(10) : storageKey;
+    const absolutePath = path.resolve(this.documentsDir, relativePart);
+
+    if (!absolutePath.startsWith(this.documentsDir)) {
+      throw new AppError('Access denied: attempted path traversal', 403);
+    }
+
+    return absolutePath;
+  }
+
+  /**
+   * Saves a document buffer locally with atomic folder creation.
+   */
+  async saveDocument(storageKey, buffer) {
+    const filePath = this.resolveDocumentPath(storageKey);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, buffer);
+    return {
+      storageKey,
+      filePath,
+      size: buffer.length,
+    };
+  }
+
+  /**
+   * Reads a document buffer from local filesystem.
+   */
+  async getDocumentBuffer(storageKey) {
+    const filePath = this.resolveDocumentPath(storageKey);
+    if (!fsSync.existsSync(filePath)) {
+      throw new AppError('Document file not found on storage', 404);
+    }
+    const stat = await fs.stat(filePath);
+    const buffer = await fs.readFile(filePath);
+    return {
+      buffer,
+      size: stat.size,
+    };
+  }
+
+  /**
+   * Returns a readable stream for high-performance direct file streaming.
+   */
+  getDocumentStream(storageKey) {
+    const filePath = this.resolveDocumentPath(storageKey);
+    if (!fsSync.existsSync(filePath)) {
+      throw new AppError('Document file not found on storage', 404);
+    }
+    return fsSync.createReadStream(filePath);
+  }
+
+  /**
+   * Deletes a document file from local storage safely.
+   */
+  async deleteDocument(storageKey) {
+    try {
+      const filePath = this.resolveDocumentPath(storageKey);
+      if (fsSync.existsSync(filePath)) {
+        await fs.unlink(filePath);
+        console.log(`[LocalStorageProvider] Deleted document file: ${storageKey}`);
+      }
+    } catch (err) {
+      console.warn(`[LocalStorageProvider] Failed to delete document ${storageKey}:`, err.message);
+    }
+  }
+
+  /**
+   * Checks if document file exists locally.
+   */
+  async documentExists(storageKey) {
+    try {
+      const filePath = this.resolveDocumentPath(storageKey);
+      return fsSync.existsSync(filePath);
+    } catch {
+      return false;
+    }
+  }
 }
+
 

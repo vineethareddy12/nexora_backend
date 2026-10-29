@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { env } from '../config/env.js';
 import { AppError } from '../errors/AppError.js';
-import { validateStorageKey, validateImageSignature } from './validation.js';
+import { validateStorageKey, validateImageSignature, validateDocumentStorageKey } from './validation.js';
 
 export class SupabaseStorageProvider {
   constructor() {
@@ -180,5 +180,105 @@ export class SupabaseStorageProvider {
 
     return storageKey;
   }
+
+  // ==========================================
+  // Document Operations (Phase 1)
+  // ==========================================
+
+  /**
+   * Uploads a private document file to Supabase.
+   */
+  async saveDocument(storageKey, buffer, contentType = 'application/pdf') {
+    validateDocumentStorageKey(storageKey);
+    const client = this.ensureClient();
+
+    const { error } = await client.storage.from(this.bucket).upload(storageKey, buffer, {
+      contentType,
+      upsert: true,
+    });
+
+    if (error) {
+      throw new AppError(`Failed to upload document to Supabase Storage: ${error.message}`, 500);
+    }
+
+    return {
+      storageKey,
+      size: buffer.length,
+      contentType,
+    };
+  }
+
+  /**
+   * Downloads a private document buffer from Supabase.
+   */
+  async getDocumentBuffer(storageKey) {
+    validateDocumentStorageKey(storageKey);
+    const client = this.ensureClient();
+
+    const { data, error } = await client.storage.from(this.bucket).download(storageKey);
+    if (error || !data) {
+      throw new AppError(`Failed to download document from Supabase: ${error?.message || 'File not found'}`, 404);
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    return {
+      buffer,
+      size: buffer.length,
+    };
+  }
+
+  /**
+   * Creates a short-lived signed download URL for private documents.
+   */
+  async getSignedDownloadUrl(storageKey, expiresInSeconds = 300) {
+    validateDocumentStorageKey(storageKey);
+    const client = this.ensureClient();
+
+    const { data, error } = await client.storage
+      .from(this.bucket)
+      .createSignedUrl(storageKey, expiresInSeconds);
+
+    if (error || !data?.signedUrl) {
+      throw new AppError(`Failed to create signed download URL: ${error?.message || 'Unknown error'}`, 500);
+    }
+
+    return data.signedUrl;
+  }
+
+  /**
+   * Deletes a document file from Supabase safely.
+   */
+  async deleteDocument(storageKey) {
+    try {
+      validateDocumentStorageKey(storageKey);
+      const client = this.ensureClient();
+      const { error } = await client.storage.from(this.bucket).remove([storageKey]);
+      if (error) {
+        console.warn(`[SupabaseStorageProvider] Failed to delete document ${storageKey}:`, error.message);
+      } else {
+        console.log(`[SupabaseStorageProvider] Deleted document: ${storageKey}`);
+      }
+    } catch (err) {
+      console.warn(`[SupabaseStorageProvider] Exception deleting document ${storageKey}:`, err.message);
+    }
+  }
+
+  /**
+   * Checks if document exists in Supabase bucket.
+   */
+  async documentExists(storageKey) {
+    try {
+      validateDocumentStorageKey(storageKey);
+      const client = this.ensureClient();
+      const { data, error } = await client.storage.from(this.bucket).list(path.dirname(storageKey));
+      if (error || !data) return false;
+      const basename = path.basename(storageKey);
+      return data.some((file) => file.name === basename);
+    } catch {
+      return false;
+    }
+  }
 }
+
 

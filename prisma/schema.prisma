@@ -31,6 +31,7 @@ model User {
 
   profile           ApplicantProfile?
   sessions          Session[]
+  documents         ApplicantDocument[]
 
   @@index([role, status])
   @@map("users")
@@ -196,4 +197,38 @@ model ContactEnquiry {
   @@index([status, createdAt])
   @@map("contact_enquiries")
 }
+
+// ==========================================
+// 5. Resume & Certificate Documents (SRS v1.2 Phase 1)
+// ==========================================
+enum DocumentType {
+  RESUME
+  EDUCATIONAL_CERTIFICATE
+  INTERNSHIP_CERTIFICATE
+  EXPERIENCE_CERTIFICATE
+  OTHER
+}
+
+model ApplicantDocument {
+  id               String       @id @default(uuid()) @db.Uuid
+  userId           String       @map("user_id") @db.Uuid
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type             DocumentType
+  originalFilename String       @map("original_filename") @db.VarChar(255)
+  storageKey       String       @unique @map("storage_key") @db.VarChar(500)
+  mimeType         String       @map("mime_type") @db.VarChar(100)
+  fileSizeBytes    Int          @map("file_size_bytes")
+  checksumSha256   String?      @map("checksum_sha256") @db.VarChar(64)
+  isArchived       Boolean      @default(false) @map("is_archived")
+  deletedAt        DateTime?    @map("deleted_at") @db.Timestamptz()
+  applicationCount Int          @default(0) @map("application_count")
+  metadata         Json?
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@index([userId, type, deletedAt])
+  @@index([userId, isArchived])
+  @@map("applicant_documents")
+}
+
 

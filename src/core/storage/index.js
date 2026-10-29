@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { env } from '../config/env.js';
 import { AppError } from '../errors/AppError.js';
 import { LocalStorageProvider } from './local.storage.js';
@@ -7,6 +8,13 @@ import {
   validateStorageKey,
   generateStorageKey,
   validateImageSignature,
+  validateDocumentMetadata,
+  validateDocumentSignature,
+  validateDocumentStorageKey,
+  generateDocumentStorageKey,
+  ALLOWED_DOCUMENT_EXTENSIONS,
+  ALLOWED_DOCUMENT_MIME_TYPES,
+  MAX_DOCUMENT_FILE_SIZE_BYTES,
 } from './validation.js';
 import {
   createPendingUpload,
@@ -184,6 +192,72 @@ class StorageService {
 
     return profile.logoUrl;
   }
+
+  // ==========================================
+  // Document Operations (Phase 1)
+  // ==========================================
+
+  /**
+   * Validates and saves an applicant document file into private storage.
+   */
+  async saveApplicantDocument({ userId, filename, buffer, mimeType, size }) {
+    if (!userId) {
+      throw new AppError('userId is required for document storage', 400);
+    }
+
+    const validated = validateDocumentMetadata({ filename, mimeType, size: size || buffer?.length });
+    validateDocumentSignature(buffer, validated.mimeType);
+
+    const storageKey = generateDocumentStorageKey(userId, validated.extension);
+    const checksumSha256 = crypto.createHash('sha256').update(buffer).digest('hex');
+
+    await this.provider.saveDocument(storageKey, buffer, validated.mimeType);
+
+    return {
+      storageKey,
+      originalFilename: filename,
+      mimeType: validated.mimeType,
+      fileSizeBytes: buffer.length,
+      checksumSha256,
+    };
+  }
+
+  /**
+   * Retrieves document contents or signed URL for authorized download.
+   */
+  async getDocumentDownload(storageKey) {
+    validateDocumentStorageKey(storageKey);
+
+    if (this.providerName === 'supabase' && typeof this.provider.getSignedDownloadUrl === 'function') {
+      const signedUrl = await this.provider.getSignedDownloadUrl(storageKey, 300);
+      return { type: 'redirect', url: signedUrl };
+    }
+
+    if (typeof this.provider.getDocumentStream === 'function') {
+      try {
+        const stream = this.provider.getDocumentStream(storageKey);
+        return { type: 'stream', stream };
+      } catch (err) {
+        // Fallback to buffer
+      }
+    }
+
+    const { buffer, size } = await this.provider.getDocumentBuffer(storageKey);
+    return { type: 'buffer', buffer, size };
+  }
+
+  /**
+   * Deletes a document file from storage safely.
+   */
+  async deleteDocumentFile(storageKey) {
+    if (!storageKey) return;
+    try {
+      validateDocumentStorageKey(storageKey);
+      await this.provider.deleteDocument(storageKey);
+    } catch (err) {
+      console.warn(`[StorageService] Failed to delete document file ${storageKey}:`, err.message);
+    }
+  }
 }
 
 export const storageService = new StorageService();
@@ -195,5 +269,13 @@ export {
   createPendingUpload,
   getPendingUpload,
   consumePendingUpload,
+  validateDocumentMetadata,
+  validateDocumentSignature,
+  validateDocumentStorageKey,
+  generateDocumentStorageKey,
+  ALLOWED_DOCUMENT_EXTENSIONS,
+  ALLOWED_DOCUMENT_MIME_TYPES,
+  MAX_DOCUMENT_FILE_SIZE_BYTES,
 };
+
 

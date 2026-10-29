@@ -20,7 +20,8 @@
     "test:modules": "node src/app/company/company.test.js && node src/app/services/services.test.js && node src/app/jobs/jobs.test.js && node src/app/enquiries/enquiries.test.js",
     "test": "node tests/phase1-verification.test.js",
     "test:phase2": "node tests/phase2-verification.test.js",
-    "test:phase3": "node tests/phase3-verification.test.js"
+    "test:phase3": "node tests/phase3-verification.test.js",
+    "test:documents": "node tests/documents.test.js"
   },
   "dependencies": {
     "@prisma/client": "^6.4.0",
@@ -32,6 +33,7 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.3",
+    "multer": "^2.5.0",
     "nodemailer": "^10.3.0",
     "prisma": "^6.4.0",
     "swagger-jsdoc": "^6.2.8",
