@@ -27,6 +27,7 @@ export const openApiSpec = {
       description: 'Local Development Server',
     },
   ],
+
   components: {
     securitySchemes: {
       BearerAuth: {
