@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { jobsController } from './jobs.controller.js';
+import { applicationsController } from '../applications/applications.controller.js';
 import { authenticate } from '../../core/middleware/authenticate.js';
 import { authorizeRole } from '../../core/middleware/authorizeRole.js';
 import { validateRequest } from '../../core/middleware/validateRequest.js';
 import { createJobSchema, updateJobSchema, updateJobStatusSchema } from './jobs.schemas.js';
+import { submitApplicationSchema } from '../applications/applications.schemas.js';
 
 export const publicJobsRouter = Router();
 export const adminJobsRouter = Router();
@@ -11,6 +13,14 @@ export const adminJobsRouter = Router();
 // Public routes: /api/v1/jobs
 publicJobsRouter.get('/', (req, res, next) => jobsController.getPublishedJobs(req, res, next));
 publicJobsRouter.get('/:idOrCode', (req, res, next) => jobsController.getPublishedJobDetails(req, res, next));
+
+// POST /api/v1/jobs/:jobId/applications — Submit job application (Phase 2)
+publicJobsRouter.post(
+  '/:jobId/applications',
+  authenticate,
+  validateRequest(submitApplicationSchema),
+  (req, res, next) => applicationsController.submitApplication(req, res, next)
+);
 
 // Admin routes: /api/v1/admin/jobs
 adminJobsRouter.use(authenticate, authorizeRole('ADMIN'));

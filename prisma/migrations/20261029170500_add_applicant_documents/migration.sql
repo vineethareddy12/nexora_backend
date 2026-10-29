@@ -32,3 +32,4 @@ CREATE INDEX "applicant_documents_user_id_is_archived_idx" ON "applicant_documen
 
 -- AddForeignKey
 ALTER TABLE "applicant_documents" ADD CONSTRAINT "applicant_documents_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+

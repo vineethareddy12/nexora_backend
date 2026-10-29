@@ -32,6 +32,7 @@ model User {
   profile           ApplicantProfile?
   sessions          Session[]
   documents         ApplicantDocument[]
+  applications      JobApplication[]
 
   @@index([role, status])
   @@map("users")
@@ -174,6 +175,8 @@ model Job {
   createdAt              DateTime       @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt              DateTime       @updatedAt @map("updated_at") @db.Timestamptz()
 
+  applications           JobApplication[]
+
   @@index([status, applicationDeadline])
   @@index([department, workMode])
   @@map("jobs")
@@ -226,9 +229,75 @@ model ApplicantDocument {
   createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
 
+  applications     JobApplication[]
+
   @@index([userId, type, deletedAt])
   @@index([userId, isArchived])
   @@map("applicant_documents")
 }
+
+// ==========================================
+// 6. Job Applications & Document Snapshots (SRS v1.2 Phase 2)
+// ==========================================
+enum ApplicationStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  SHORTLISTED
+  INTERVIEW_SCHEDULED
+  REJECTED
+  OFFER_EXTENDED
+  HIRED
+  WITHDRAWN
+}
+
+model JobApplication {
+  id                    String                      @id @default(uuid()) @db.Uuid
+  referenceNumber       String                      @unique @map("reference_number") @db.VarChar(50)
+  applicantId           String                      @map("applicant_id") @db.Uuid
+  applicant             User                        @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  jobId                 String                      @map("job_id") @db.Uuid
+  job                   Job                         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  status                ApplicationStatus           @default(SUBMITTED)
+  resumeId              String?                     @map("resume_id") @db.Uuid
+  resume                ApplicantDocument?          @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  coverNote             String?                     @map("cover_note") @db.Text
+  noticePeriod          String?                     @map("notice_period") @db.VarChar(60)
+  privacyAcknowledgedAt DateTime                    @map("privacy_acknowledged_at") @db.Timestamptz()
+  privacyNoticeVersion  String                      @map("privacy_notice_version") @db.VarChar(20)
+  submittedAt           DateTime                    @default(now()) @map("submitted_at") @db.Timestamptz()
+  withdrawnAt           DateTime?                   @map("withdrawn_at") @db.Timestamptz()
+  withdrawalReason      String?                     @map("withdrawal_reason") @db.Text
+  applicantSnapshot     Json                        @map("applicant_snapshot")
+  createdAt             DateTime                    @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt             DateTime                    @updatedAt @map("updated_at") @db.Timestamptz()
+
+  documents             ApplicationDocumentSnapshot[]
+
+  @@unique([applicantId, jobId])
+  @@index([applicantId, status])
+  @@index([jobId, status])
+  @@index([referenceNumber])
+  @@map("job_applications")
+}
+
+model ApplicationDocumentSnapshot {
+  id               String         @id @default(uuid()) @db.Uuid
+  applicationId    String         @map("application_id") @db.Uuid
+  application      JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  documentId       String?        @map("document_id") @db.Uuid
+  documentType     DocumentType   @map("document_type")
+  originalFilename String         @map("original_filename") @db.VarChar(255)
+  storageKey       String         @map("storage_key") @db.VarChar(500)
+  mimeType         String         @map("mime_type") @db.VarChar(100)
+  fileSizeBytes    Int            @map("file_size_bytes")
+  checksumSha256   String?        @map("checksum_sha256") @db.VarChar(64)
+  isResume         Boolean        @default(false) @map("is_resume")
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([applicationId, isResume])
+  @@index([documentId])
+  @@map("application_documents")
+}
+
 
 

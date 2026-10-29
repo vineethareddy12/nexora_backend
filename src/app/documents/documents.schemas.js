@@ -21,3 +21,4 @@ export const getDocumentsQuerySchema = z.object({
   type: z.enum(DOCUMENT_TYPES).optional(),
   includeArchived: z.preprocess((val) => val === 'true' || val === true, z.boolean()).optional(),
 });
+

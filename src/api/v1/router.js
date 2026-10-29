@@ -4,6 +4,7 @@ import { Router } from 'express';
 import authRoutes from '../../app/auth/auth.routes.js';
 import profileRoutes from '../../app/applicant-profile/profile.routes.js';
 import documentRoutes from '../../app/documents/documents.routes.js';
+import { applicantApplicationsRouter } from '../../app/applications/applications.routes.js';
 import healthRoutes from '../../app/health/health.routes.js';
 
 import {
@@ -39,6 +40,9 @@ apiV1Router.use('/me/profile', profileRoutes);
 
 // Applicant documents vault (Resumes & Certificates - Phase 1)
 apiV1Router.use('/me/documents', documentRoutes);
+
+// Applicant job applications lifecycle (Phase 2)
+apiV1Router.use('/me/applications', applicantApplicationsRouter);
 
 // Public company information and protected admin management
 apiV1Router.use('/company', publicCompanyRouter);

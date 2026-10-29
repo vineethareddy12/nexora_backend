@@ -1,6 +1,7 @@
 import { authOpenApi } from '../app/auth/auth.openapi.js';
 import { profileOpenApi } from '../app/applicant-profile/profile.openapi.js';
 import { documentsOpenApi } from '../app/documents/documents.openapi.js';
+import { applicationsOpenApi } from '../app/applications/applications.openapi.js';
 import { companyOpenApi } from '../app/company/company.openapi.js';
 import { servicesOpenApi } from '../app/services/services.openapi.js';
 import { jobsOpenApi } from '../app/jobs/jobs.openapi.js';
@@ -53,6 +54,7 @@ export const openApiSpec = {
         },
       },
       ...documentsOpenApi.components.schemas,
+      ...applicationsOpenApi.components.schemas,
     },
     responses: {
       ...documentsOpenApi.components.responses,
@@ -71,6 +73,7 @@ export const openApiSpec = {
     ...authOpenApi,
     ...profileOpenApi,
     ...documentsOpenApi.paths,
+    ...applicationsOpenApi.paths,
     ...companyOpenApi,
     ...servicesOpenApi,
     ...jobsOpenApi,
