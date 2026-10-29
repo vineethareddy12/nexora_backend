@@ -35,14 +35,21 @@ const prisma = new PrismaClient({
 
 // ─── 1. Admin User ────────────────────────────────────────────────────────────
 async function seedAdmin() {
+  const existingAdmin = await prisma.user.findFirst({
+    where: { role: 'ADMIN' },
+  });
+
+  if (existingAdmin) {
+    console.log(`[SEED] ℹ️ Admin user already exists (${existingAdmin.email}), skipping.`);
+    return existingAdmin;
+  }
+
   const email = (process.env.ADMIN_DEFAULT_EMAIL || 'admin@nexoratech.com').toLowerCase().trim();
   const password = process.env.ADMIN_DEFAULT_PASSWORD || 'AdminSecurePass2026!';
   const passwordHash = await bcrypt.hash(password, 12);
 
-  const admin = await prisma.user.upsert({
-    where: { email },
-    update: { passwordHash, role: 'ADMIN', status: 'ACTIVE' }, // always refresh hash
-    create: {
+  const admin = await prisma.user.create({
+    data: {
       email,
       passwordHash,
       fullName: 'Nexora System Administrator',
@@ -61,6 +68,12 @@ async function seedAdmin() {
 
 // ─── 2. Company Profile ───────────────────────────────────────────────────────
 async function seedCompany() {
+  const existing = await prisma.companyProfile.findFirst();
+  if (existing) {
+    console.log('[SEED] ℹ️ Company profile already exists, preserving your data.');
+    return;
+  }
+
   const data = {
     companyName: 'Nexora Technologies Private Limited',
     logoUrl: null,
@@ -92,17 +105,18 @@ async function seedCompany() {
     websiteUrl: 'https://www.globaltechnologyservice.in',
   };
 
-  const existing = await prisma.companyProfile.findFirst();
-  if (existing) {
-    await prisma.companyProfile.update({ where: { id: existing.id }, data });
-  } else {
-    await prisma.companyProfile.create({ data });
-  }
+  await prisma.companyProfile.create({ data });
   console.log('[SEED] ✅ Company profile ready');
 }
 
 // ─── 3. Services ──────────────────────────────────────────────────────────────
 async function seedServices() {
+  const existingCount = await prisma.service.count();
+  if (existingCount > 0) {
+    console.log(`[SEED] ℹ️ Found ${existingCount} services in database, preserving existing data.`);
+    return;
+  }
+
   const services = [
     {
       title: 'Full-Stack Web Application Development',
@@ -233,6 +247,12 @@ async function seedServices() {
 
 // ─── 4. Job Postings ──────────────────────────────────────────────────────────
 async function seedJobs() {
+  const existingCount = await prisma.job.count();
+  if (existingCount > 0) {
+    console.log(`[SEED] ℹ️ Found ${existingCount} jobs in database, preserving existing data.`);
+    return;
+  }
+
   const jobs = [
     {
       jobCode: 'NEX-ENG-001',
@@ -375,6 +395,11 @@ async function seedJobs() {
 
 // ─── Runner ───────────────────────────────────────────────────────────────────
 async function main() {
+  if (process.env.SKIP_SEED === 'true') {
+    console.log('[SEED] ⏭️ SKIP_SEED=true detected. Skipping database seed.');
+    return;
+  }
+
   console.log('\n══════════════════════════════════════════');
   console.log('  Nexora Technologies — Database Seed');
   console.log('══════════════════════════════════════════\n');
