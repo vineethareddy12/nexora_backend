@@ -1,5 +1,23 @@
 import app from './app.js';
 import { env } from './core/config/env.js';
+import { storageService } from './core/storage/index.js';
+import { companyRepository } from './app/company/company.repository.js';
+
+// Initialize storage provider and validate environment configuration
+try {
+  await storageService.init();
+
+  // Run legacy logo migration if needed
+  const profile = await companyRepository.getProfile();
+  if (profile) {
+    await storageService.migrateLegacyLogo(profile, async (savedKey) => {
+      await companyRepository.upsertProfile({ logoUrl: savedKey });
+    });
+  }
+} catch (storageErr) {
+  console.error('[FATAL] Storage initialization failed:', storageErr.message);
+  process.exit(1);
+}
 
 const server = app.listen(env.PORT, () => {
   console.log(`=========================================`);

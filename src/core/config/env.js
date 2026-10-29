@@ -44,4 +44,11 @@ export const env = {
   MAIL_FROM: process.env.MAIL_FROM || 'Nexora Technologies <no-reply@nexoratech.com>',
 
   SWAGGER_ENABLED: process.env.SWAGGER_ENABLED !== 'false',
+
+  // Storage settings
+  STORAGE_PROVIDER: (process.env.STORAGE_PROVIDER || 'local').toLowerCase().trim(),
+  LOCAL_STORAGE_DIR: process.env.LOCAL_STORAGE_DIR || './storage',
+  SUPABASE_URL: process.env.SUPABASE_URL || '',
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  SUPABASE_STORAGE_BUCKET: process.env.SUPABASE_STORAGE_BUCKET || 'company-assets',
 };

@@ -1,4 +1,5 @@
 import { companyRepository } from './company.repository.js';
+import { storageService } from '../../core/storage/index.js';
 import { AppError } from '../../core/errors/AppError.js';
 
 // Default corporate profile fallback based on SRS v1.2 / GTS reference
@@ -36,13 +37,17 @@ export class CompanyService {
   async getPublicProfile() {
     let profile = await companyRepository.getProfile();
     if (!profile) {
-      // Auto-initialize with default official profile if empty
       profile = await companyRepository.upsertProfile(DEFAULT_COMPANY_PROFILE);
     }
 
+    // Attempt migration if still stored as legacy base64
+    await this.migrateLegacyLogo(profile);
+
+    const resolvedLogoUrl = await storageService.resolveLogoUrl(profile.logoUrl);
+
     return {
       companyName: profile.companyName,
-      logoUrl: profile.logoUrl,
+      logoUrl: resolvedLogoUrl,
       shortDescription: profile.shortDescription,
       about: profile.about,
       mission: profile.mission,
@@ -65,11 +70,65 @@ export class CompanyService {
     if (!profile) {
       profile = await companyRepository.upsertProfile(DEFAULT_COMPANY_PROFILE);
     }
-    return profile;
+
+    await this.migrateLegacyLogo(profile);
+
+    const resolvedLogoUrl = await storageService.resolveLogoUrl(profile.logoUrl);
+
+    return {
+      ...profile,
+      logoUrl: resolvedLogoUrl,
+    };
   }
 
   async updateProfile(data) {
     return await companyRepository.upsertProfile(data);
+  }
+
+  /**
+   * Step 1: Request short-lived direct upload URL/token
+   */
+  async requestLogoUpload({ userId, filename, contentType, size }) {
+    return await storageService.requestLogoUpload({ userId, filename, contentType, size });
+  }
+
+  /**
+   * Step 3: Confirm direct upload, verify presence, update database, and clean up old object
+   */
+  async confirmLogoUpload({ uploadId, userId }) {
+    const verified = await storageService.confirmLogoUpload({ uploadId, userId });
+
+    const currentProfile = await companyRepository.getProfile();
+    const oldLogoKey = currentProfile?.logoUrl;
+
+    // Update database record with verified storage key
+    await companyRepository.upsertProfile({
+      logoUrl: verified.storageKey,
+    });
+
+    // Safely delete previous logo object if it was a storage key and different from the new key
+    if (oldLogoKey && oldLogoKey.startsWith('logos/') && oldLogoKey !== verified.storageKey) {
+      await storageService.deleteLogoObject(oldLogoKey);
+    }
+
+    return {
+      logoUrl: verified.displayUrl,
+      storageKey: verified.storageKey,
+    };
+  }
+
+  /**
+   * Idempotent migration of legacy base64 logo to storage provider
+   */
+  async migrateLegacyLogo(profile) {
+    if (profile && typeof profile.logoUrl === 'string' && profile.logoUrl.startsWith('data:image/')) {
+      const newKey = await storageService.migrateLegacyLogo(profile, async (savedKey) => {
+        await companyRepository.upsertProfile({ logoUrl: savedKey });
+      });
+      if (newKey) {
+        profile.logoUrl = newKey;
+      }
+    }
   }
 }
 

@@ -90,4 +90,127 @@ export const companyOpenApi = {
       },
     },
   },
+  '/api/v1/company/logo/upload-url': {
+    post: {
+      tags: ['Admin - Company Management'],
+      summary: 'Request signed direct upload URL for company logo',
+      description: 'Validates file metadata and returns a direct upload URL (Supabase signed URL or local upload endpoint) and token for the frontend to upload image bytes directly.',
+      security: [{ BearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['filename', 'contentType', 'size'],
+              properties: {
+                filename: { type: 'string', example: 'company-logo.png' },
+                contentType: { type: 'string', enum: ['image/png', 'image/jpeg', 'image/webp'], example: 'image/png' },
+                size: { type: 'integer', example: 125000, description: 'File size in bytes (max 5MB)' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: 'Upload URL generated successfully',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      uploadId: { type: 'string', format: 'uuid' },
+                      uploadUrl: { type: 'string' },
+                      storageKey: { type: 'string', example: 'logos/company/550e8400-e29b-41d4-a716-446655440000.png' },
+                      method: { type: 'string', example: 'PUT' },
+                      headers: { type: 'object' },
+                      expiresIn: { type: 'integer', example: 900 },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        400: { description: 'Invalid image format or file exceeds 5MB limit' },
+        401: { description: 'Authentication required' },
+        403: { description: 'Administrator privileges required' },
+      },
+    },
+  },
+  '/api/v1/company/logo/confirm-upload': {
+    post: {
+      tags: ['Admin - Company Management'],
+      summary: 'Confirm direct logo upload and update company profile',
+      description: 'Verifies the uploaded object in the storage provider, validates image signature, updates database reference, and cleans up obsolete logo.',
+      security: [{ BearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['uploadId'],
+              properties: {
+                uploadId: { type: 'string', format: 'uuid' },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: 'Logo confirmed and persisted',
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  success: { type: 'boolean', example: true },
+                  message: { type: 'string' },
+                  data: {
+                    type: 'object',
+                    properties: {
+                      logoUrl: { type: 'string' },
+                      storageKey: { type: 'string' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        400: { description: 'Upload verification failed' },
+        404: { description: 'Pending upload not found or object missing in storage' },
+        409: { description: 'Upload authorization already consumed' },
+      },
+    },
+  },
+  '/api/v1/company/logo/content': {
+    get: {
+      tags: ['Company Profile'],
+      summary: 'Serve company logo content (Local Storage)',
+      description: 'Safely serves the validated logo image bytes from local storage root or redirects to cloud storage.',
+      parameters: [
+        {
+          name: 'key',
+          in: 'query',
+          required: true,
+          schema: { type: 'string' },
+          description: 'Controlled storage key (e.g. logos/company/uuid.png)',
+        },
+      ],
+      responses: {
+        200: { description: 'Image binary data' },
+        400: { description: 'Invalid or missing storage key' },
+        403: { description: 'Path traversal attempt rejected' },
+        404: { description: 'Logo file not found' },
+      },
+    },
+  },
 };

@@ -17,3 +17,13 @@ export const updateCompanySchema = z.object({
   operatingHours: z.string().max(255).optional().nullable().or(z.literal('')),
   websiteUrl: z.string().url('Invalid website URL').optional().nullable().or(z.literal('')),
 });
+
+export const requestLogoUploadSchema = z.object({
+  filename: z.string().min(1, 'Filename is required').max(255),
+  contentType: z.string().min(1, 'ContentType is required'),
+  size: z.number().positive('Size must be positive').max(5 * 1024 * 1024, 'Size exceeds 5MB limit'),
+});
+
+export const confirmLogoUploadSchema = z.object({
+  uploadId: z.string().uuid('Valid uploadId is required'),
+});
