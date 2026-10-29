@@ -25,6 +25,17 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // Swagger Documentation at /api-docs and /api-docs.json
 configureSwagger(app);
 
+// Root entry point
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Nexora Technologies API is running',
+    version: '1.0.0',
+    docs: '/api-docs',
+    health: '/health',
+  });
+});
+
 // Direct /health check endpoint for probes
 app.use('/health', healthRouter);
 
