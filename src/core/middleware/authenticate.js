@@ -25,6 +25,11 @@ export const authenticate = async (req, res, next) => {
         role: true,
         status: true,
         passwordChangedAt: true,
+        profile: {
+          select: {
+            phone: true,
+          },
+        },
       },
     });
 
@@ -36,8 +41,11 @@ export const authenticate = async (req, res, next) => {
       return next(AppError.forbidden('Account is disabled. Please contact support.'));
     }
 
-    // Attach safe user context
-    req.user = user;
+    // Attach safe user context with phone
+    req.user = {
+      ...user,
+      phone: user.profile?.phone || null,
+    };
     next();
   } catch (error) {
     next(error);

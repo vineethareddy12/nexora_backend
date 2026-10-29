@@ -13,6 +13,11 @@ export const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parseInt(process.env.PORT, 10) || 4000,
   CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:5173',
+  PRIMARY_CLIENT_URL: process.env.CLIENT_URL
+    ? (process.env.CLIENT_URL.includes(',')
+        ? process.env.CLIENT_URL.split(',').find(u => u.includes('localhost:5173')) || process.env.CLIENT_URL.split(',')[0].trim()
+        : process.env.CLIENT_URL.trim())
+    : 'http://localhost:5173',
   API_PREFIX: '/api/v1',
 
   DATABASE_URL: (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('YOUR_POSTGRES_PASSWORD_HERE'))

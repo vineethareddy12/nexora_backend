@@ -10,6 +10,7 @@ import {
 } from '../../core/security/tokens.js';
 import { AppError } from '../../core/errors/AppError.js';
 import { env } from '../../core/config/env.js';
+import { EmailService } from '../../core/email/index.js';
 
 export const AUTH_MESSAGES = {
   REGISTER_SUCCESS: 'Account registered successfully',
@@ -25,7 +26,7 @@ export const AUTH_MESSAGES = {
 
 export class AuthService {
   // 1. Applicant Registration
-  async register({ fullName, email, password }) {
+  async register({ fullName, email, password, phone }) {
     const existing = await authRepository.findByEmail(email);
     if (existing) {
       throw AppError.conflict(AUTH_MESSAGES.EMAIL_EXISTS);
@@ -36,10 +37,21 @@ export class AuthService {
       fullName,
       email,
       passwordHash,
+      phone: phone || null,
     });
 
     const accessToken = signAccessToken({ userId: user.id, role: user.role });
     const refreshToken = await this.createSession(user.id);
+
+    // Send transactional welcome email asynchronously
+    EmailService.sendWelcomeApplicant({
+      to: user.email,
+      userName: user.fullName,
+      phone: phone || null,
+      portalUrl: `${env.PRIMARY_CLIENT_URL}/app/dashboard`,
+    }).catch((err) => {
+      console.error('[Email] Failed to send welcome email:', err.message);
+    });
 
     return {
       user: {
@@ -48,6 +60,7 @@ export class AuthService {
         email: user.email,
         role: user.role,
         status: user.status,
+        phone: user.profile?.phone || phone || null,
       },
       tokens: { accessToken, refreshToken },
     };
@@ -81,6 +94,7 @@ export class AuthService {
         email: user.email,
         role: user.role,
         status: user.status,
+        phone: user.profile?.phone || null,
       },
       tokens: { accessToken, refreshToken },
     };
@@ -158,8 +172,8 @@ export class AuthService {
     }
   }
 
-  // 4. Password Reset (Stateless JWT + session revocation)
-  async requestPasswordReset(email) {
+  // 4. Password Reset (Stateless JWT + session revocation + HTML Email)
+  async requestPasswordReset(email, clientOrigin) {
     const user = await authRepository.findByEmail(email);
 
     // Always return neutral message to prevent user enumeration
@@ -168,17 +182,23 @@ export class AuthService {
     }
 
     const resetToken = signPasswordResetToken(user.id);
-    const resetUrl = `${env.CLIENT_URL}/reset-password?token=${resetToken}`;
+    const clientBase = clientOrigin || env.PRIMARY_CLIENT_URL;
+    const cleanClientBase = clientBase.replace(/\/+$/, '');
+    const resetUrl = `${cleanClientBase}/reset-password?token=${resetToken}`;
 
-    if (env.SMTP_HOST && env.SMTP_USER) {
-      console.log(`[SMTP] Dispatched password reset email to ${user.email}`);
-    } else if (env.NODE_ENV === 'development') {
-      console.log(`[DEV EMAIL PREVIEW] Reset link for ${user.email}: ${resetUrl}`);
-    }
+    // Dispatch real email via Nodemailer EmailService
+    const emailResult = await EmailService.sendPasswordReset({
+      to: user.email,
+      userName: user.fullName,
+      resetUrl,
+      expiresInMinutes: 15,
+    });
+
+    console.log(`[AuthService] Password reset requested for ${user.email}. Email sent: ${emailResult.success}`);
 
     return {
       message: AUTH_MESSAGES.RESET_REQUEST_SUCCESS,
-      ...(env.NODE_ENV === 'development' ? { devPreviewToken: resetToken } : {}),
+      ...(env.NODE_ENV === 'development' ? { devPreviewToken: resetToken, devResetUrl: resetUrl } : {}),
     };
   }
 

@@ -15,7 +15,7 @@ export class AuthRepository {
     });
   }
 
-  async createApplicantWithProfile({ fullName, email, passwordHash }) {
+  async createApplicantWithProfile({ fullName, email, passwordHash, phone }) {
     return await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
@@ -35,10 +35,11 @@ export class AuthRepository {
         },
       });
 
-      // Create initial empty profile
+      // Create initial profile with phone number if provided
       const profile = await tx.applicantProfile.create({
         data: {
           userId: user.id,
+          phone: phone ? String(phone).trim() : null,
           technicalSkills: [],
         },
       });

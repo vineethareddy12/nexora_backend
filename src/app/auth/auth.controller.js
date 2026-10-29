@@ -4,7 +4,13 @@ import { sendSuccess } from '../../core/http/response.js';
 export class AuthController {
   async register(req, res, next) {
     try {
-      const result = await authService.register(req.body);
+      const { fullName, email, password, phone, mobile } = req.body;
+      const result = await authService.register({
+        fullName,
+        email,
+        password,
+        phone: phone || mobile || null,
+      });
       return sendSuccess(res, result, AUTH_MESSAGES.REGISTER_SUCCESS, 201);
     } catch (error) {
       next(error);
@@ -58,7 +64,15 @@ export class AuthController {
 
   async forgotPassword(req, res, next) {
     try {
-      const result = await authService.requestPasswordReset(req.body.email);
+      let clientOrigin = req.headers.origin;
+      if (!clientOrigin && req.headers.referer) {
+        try {
+          clientOrigin = new URL(req.headers.referer).origin;
+        } catch {
+          // fallback to null
+        }
+      }
+      const result = await authService.requestPasswordReset(req.body.email, clientOrigin);
       return sendSuccess(res, result, result.message, 200);
     } catch (error) {
       next(error);
