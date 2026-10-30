@@ -5,6 +5,8 @@ import authRoutes from '../../app/auth/auth.routes.js';
 import profileRoutes from '../../app/applicant-profile/profile.routes.js';
 import documentRoutes from '../../app/documents/documents.routes.js';
 import { applicantApplicationsRouter } from '../../app/applications/applications.routes.js';
+import { applicationsController } from '../../app/applications/applications.controller.js';
+import { authenticate } from '../../core/middleware/authenticate.js';
 import healthRoutes from '../../app/health/health.routes.js';
 
 import {
@@ -41,7 +43,12 @@ apiV1Router.use('/me/profile', profileRoutes);
 // Applicant documents vault (Resumes & Certificates - Phase 1)
 apiV1Router.use('/me/documents', documentRoutes);
 
-// Applicant job applications lifecycle (Phase 2)
+// Applicant Dashboard (Phase 3 Dashboard & Analytics)
+apiV1Router.get('/me/dashboard', authenticate, (req, res, next) => {
+    applicationsController.getApplicantDashboard(req, res, next);
+});
+
+// Applicant job applications lifecycle (Phase 2 & Phase 3)
 apiV1Router.use('/me/applications', applicantApplicationsRouter);
 
 // Public company information and protected admin management

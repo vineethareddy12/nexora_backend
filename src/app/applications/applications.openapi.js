@@ -98,14 +98,78 @@ export const applicationsOpenApi = {
         },
       },
     },
-    '/api/v1/me/applications': {
+    '/api/v1/me/dashboard': {
       get: {
-        tags: ['Job Applications'],
-        summary: 'List all applications submitted by the authenticated candidate',
+        tags: ['Applicant Dashboard'],
+        summary: 'Get candidate summary dashboard metrics and recent applications',
+        description: 'Aggregates live counts across all 8 application statuses, candidate profile coordinates, and top 5 recent submissions.',
         security: [{ BearerAuth: [] }],
         responses: {
           200: {
-            description: 'List of submitted applications',
+            description: 'Dashboard metrics retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        applicant: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            fullName: { type: 'string', example: 'John Doe' },
+                            email: { type: 'string', example: 'candidate@example.com' },
+                          },
+                        },
+                        summary: {
+                          type: 'object',
+                          properties: {
+                            totalApplications: { type: 'integer', example: 5 },
+                            submitted: { type: 'integer', example: 2 },
+                            underReview: { type: 'integer', example: 1 },
+                            shortlisted: { type: 'integer', example: 1 },
+                            interview: { type: 'integer', example: 1 },
+                            offered: { type: 'integer', example: 0 },
+                            rejected: { type: 'integer', example: 0 },
+                            withdrawn: { type: 'integer', example: 0 },
+                          },
+                        },
+                        recentApplications: {
+                          type: 'array',
+                          items: { $ref: '#/components/schemas/JobApplicationSummary' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: 'Unauthorized' },
+        },
+      },
+    },
+    '/api/v1/me/applications': {
+      get: {
+        tags: ['Job Applications'],
+        summary: 'List all applications submitted by the authenticated candidate with search, filters, and pagination',
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } },
+          { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by reference number or job title' },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['ALL', 'SUBMITTED', 'UNDER_REVIEW', 'SHORTLISTED', 'INTERVIEW_SCHEDULED', 'REJECTED', 'OFFER_EXTENDED', 'HIRED', 'WITHDRAWN'] } },
+          { name: 'fromDate', in: 'query', schema: { type: 'string', format: 'date' } },
+          { name: 'toDate', in: 'query', schema: { type: 'string', format: 'date' } },
+          { name: 'sortBy', in: 'query', schema: { type: 'string', enum: ['createdAt', 'status'], default: 'createdAt' } },
+          { name: 'sortOrder', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'], default: 'desc' } },
+        ],
+        responses: {
+          200: {
+            description: 'List of submitted applications with pagination',
             content: {
               'application/json': {
                 schema: {
@@ -118,6 +182,15 @@ export const applicationsOpenApi = {
                         applications: {
                           type: 'array',
                           items: { $ref: '#/components/schemas/JobApplicationSummary' },
+                        },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            total: { type: 'integer', example: 12 },
+                            page: { type: 'integer', example: 1 },
+                            limit: { type: 'integer', example: 10 },
+                            totalPages: { type: 'integer', example: 2 },
+                          },
                         },
                       },
                     },

@@ -15,3 +15,56 @@ export const withdrawApplicationSchema = z.object({
   reason: z.string().max(500).optional(),
 });
 
+export const getMyApplicationsQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(50).default(10),
+  search: z
+    .string()
+    .trim()
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : undefined)),
+  status: z
+    .string()
+    .optional()
+    .transform((val) => (val ? val.trim().toUpperCase() : 'ALL'))
+    .pipe(
+      z.enum([
+        'ALL',
+        'SUBMITTED',
+        'UNDER_REVIEW',
+        'SHORTLISTED',
+        'INTERVIEW_SCHEDULED',
+        'REJECTED',
+        'OFFER_EXTENDED',
+        'HIRED',
+        'WITHDRAWN',
+      ]).default('ALL')
+    ),
+  fromDate: z
+    .string()
+    .trim()
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : undefined))
+    .pipe(
+      z
+        .string()
+        .datetime()
+        .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
+        .optional()
+    ),
+  toDate: z
+    .string()
+    .trim()
+    .optional()
+    .transform((val) => (val && val.length > 0 ? val : undefined))
+    .pipe(
+      z
+        .string()
+        .datetime()
+        .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
+        .optional()
+    ),
+  sortBy: z.enum(['submittedAt', 'createdAt', 'updatedAt', 'status']).default('submittedAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+

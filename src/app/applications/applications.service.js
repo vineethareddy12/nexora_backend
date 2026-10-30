@@ -218,10 +218,58 @@ export const applicationsService = {
   },
 
   /**
-   * Retrieves all applications submitted by the authenticated applicant.
+   * Retrieves applications submitted by the authenticated applicant with filtering & pagination.
    */
-  async getMyApplications(applicantId) {
-    return applicationsRepository.findApplicationsByApplicant(applicantId);
+  async getMyApplications(applicantId, options = {}) {
+    return applicationsRepository.findApplicationsByApplicant(applicantId, options);
+  },
+
+  /**
+   * Retrieves dashboard summary metrics and 5 latest applications.
+   */
+  async getApplicantDashboard(applicantId) {
+    const user = await prisma.user.findUnique({
+      where: { id: applicantId },
+      include: {
+        profile: true,
+      },
+    });
+
+    if (!user) {
+      throw AppError.unauthorized('Applicant account not found');
+    }
+
+    const { summary, recentApplications } = await applicationsRepository.getApplicantDashboardMetrics(applicantId);
+
+    const technicalSkillsCount = Array.isArray(user.profile?.technicalSkills)
+      ? user.profile.technicalSkills.length
+      : 0;
+
+    const isProfileConfigured = Boolean(user.profile?.phone && user.profile?.highestQualification);
+
+    return {
+      applicant: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.profile?.phone || null,
+        skillsCount: technicalSkillsCount,
+        isProfileConfigured,
+      },
+      summary,
+      recentApplications: recentApplications.map((app) => ({
+        id: app.id,
+        referenceNumber: app.referenceNumber,
+        jobTitle: app.job?.title || 'Unknown Role',
+        location: app.job?.location || 'Remote',
+        department: app.job?.department || null,
+        employmentType: app.job?.employmentType || null,
+        workMode: app.job?.workMode || null,
+        status: app.status,
+        submittedAt: app.submittedAt,
+        updatedAt: app.updatedAt,
+      })),
+    };
   },
 
   /**

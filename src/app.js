@@ -36,8 +36,9 @@ app.get('/', (req, res) => {
   });
 });
 
-// Direct /health check endpoint for probes
+// Direct /health check endpoints for probes and instant warmups
 app.use('/health', healthRouter);
+app.use(`${env.API_PREFIX}/health`, healthRouter);
 
 // Mount centralized API v1 router under /api/v1
 app.use(env.API_PREFIX, apiV1Router);

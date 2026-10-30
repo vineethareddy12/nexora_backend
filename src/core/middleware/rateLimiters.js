@@ -9,7 +9,7 @@ export const globalLimiter = rateLimit({
   max: isDev ? 50000 : (env.RATE_LIMIT_MAX || 1000),
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => isDev || req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1',
+  skip: (req) => isDev || req.path === '/health' || req.path.endsWith('/health') || req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1',
   message: {
     success: false,
     error: {

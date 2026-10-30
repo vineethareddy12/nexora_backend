@@ -104,7 +104,7 @@ export class AuthService {
   async createSession(userId) {
     const rawRefreshToken = generateRefreshTokenString();
     const refreshTokenHash = hashToken(rawRefreshToken);
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
     await authRepository.createSession({
       userId,
@@ -128,7 +128,27 @@ export class AuthService {
     }
 
     if (session.revokedAt) {
-      // Security: possible token reuse detected -> invalidate all active sessions
+      // Grace period: if revoked within the last 60 seconds (due to network latency or concurrent in-flight requests),
+      // allow the client to receive a fresh access token without invalidating all sessions.
+      const timeSinceRevocation = Date.now() - new Date(session.revokedAt).getTime();
+      if (timeSinceRevocation <= 60000 && session.user && session.user.status === 'ACTIVE') {
+        const freshAccessToken = signAccessToken({
+          userId: session.user.id,
+          role: session.user.role,
+        });
+        return {
+          accessToken: freshAccessToken,
+          refreshToken: rawRefreshToken,
+          user: {
+            id: session.user.id,
+            email: session.user.email,
+            fullName: session.user.fullName,
+            role: session.user.role,
+          },
+        };
+      }
+
+      // Security: possible token reuse detected outside 60s grace window -> invalidate all active sessions
       await authRepository.revokeAllUserSessions(session.userId);
       throw AppError.unauthorized('Refresh token was previously revoked. Please log in again.');
     }

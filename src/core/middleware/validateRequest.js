@@ -1,9 +1,9 @@
 import { ZodError } from 'zod';
 import { AppError } from '../errors/AppError.js';
 
-export const validateRequest = (schema) => (req, res, next) => {
+export const validateRequest = (schema, source = 'body') => (req, res, next) => {
   try {
-    req.body = schema.parse(req.body);
+    req[source] = schema.parse(req[source]);
     next();
   } catch (error) {
     if (error instanceof ZodError) {

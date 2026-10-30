@@ -20,10 +20,23 @@ export class ApplicationsController {
 
   async getMyApplications(req, res, next) {
     try {
-      const applications = await applicationsService.getMyApplications(req.user.id);
+      const result = await applicationsService.getMyApplications(req.user.id, req.query);
       res.status(200).json({
         success: true,
-        data: { applications },
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getApplicantDashboard(req, res, next) {
+    try {
+      const data = await applicationsService.getApplicantDashboard(req.user.id);
+      res.status(200).json({
+        success: true,
+        message: 'Applicant dashboard retrieved successfully',
+        data,
       });
     } catch (error) {
       next(error);

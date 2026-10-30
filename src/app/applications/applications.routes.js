@@ -2,17 +2,25 @@ import { Router } from 'express';
 import { applicationsController } from './applications.controller.js';
 import { authenticate } from '../../core/middleware/authenticate.js';
 import { validateRequest } from '../../core/middleware/validateRequest.js';
-import { submitApplicationSchema, withdrawApplicationSchema } from './applications.schemas.js';
+import {
+  submitApplicationSchema,
+  withdrawApplicationSchema,
+  getMyApplicationsQuerySchema,
+} from './applications.schemas.js';
 
 export const applicantApplicationsRouter = Router();
 
 // All applicant application routes require authentication
 applicantApplicationsRouter.use(authenticate);
 
-// 1. GET /api/v1/me/applications — List applicant's submitted applications
-applicantApplicationsRouter.get('/', (req, res, next) => {
-  applicationsController.getMyApplications(req, res, next);
-});
+// 1. GET /api/v1/me/applications — List applicant's submitted applications (search, filter, sort, paginate)
+applicantApplicationsRouter.get(
+  '/',
+  validateRequest(getMyApplicationsQuerySchema, 'query'),
+  (req, res, next) => {
+    applicationsController.getMyApplications(req, res, next);
+  }
+);
 
 // 2. GET /api/v1/me/applications/:id — View specific application details
 applicantApplicationsRouter.get('/:id', (req, res, next) => {

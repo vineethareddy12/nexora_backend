@@ -29,8 +29,8 @@ export const env = {
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || 'nexora_refresh_secret_key_at_least_32_characters_long',
   JWT_RESET_SECRET: process.env.JWT_RESET_SECRET || 'nexora_reset_secret_key_at_least_32_characters_long',
 
-  ACCESS_TOKEN_TTL: process.env.ACCESS_TOKEN_TTL || '15m',
-  REFRESH_TOKEN_TTL: process.env.REFRESH_TOKEN_TTL || '7d',
+  ACCESS_TOKEN_TTL: process.env.ACCESS_TOKEN_TTL || '24h',
+  REFRESH_TOKEN_TTL: process.env.REFRESH_TOKEN_TTL || '30d',
   RESET_TOKEN_TTL: process.env.RESET_TOKEN_TTL || '15m',
 
   // Rate Limiting
