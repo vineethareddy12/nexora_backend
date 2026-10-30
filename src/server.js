@@ -2,6 +2,10 @@ import app from './app.js';
 import { env } from './core/config/env.js';
 import { storageService } from './core/storage/index.js';
 import { companyRepository } from './app/company/company.repository.js';
+import { ensureDatabaseSchema } from './core/database/ensureSchema.js';
+
+// Auto-sync database tables and schema (resilient on deployment platforms like Render)
+await ensureDatabaseSchema();
 
 // Initialize storage provider and validate environment configuration
 try {
