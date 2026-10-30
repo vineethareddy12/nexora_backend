@@ -26,7 +26,13 @@ export const getMyApplicationsQuerySchema = z.object({
   status: z
     .string()
     .optional()
-    .transform((val) => (val ? val.trim().toUpperCase() : 'ALL'))
+    .transform((val) => {
+      if (!val) return 'ALL';
+      const u = val.trim().toUpperCase();
+      if (u === 'OFFERED' || u === 'OFFER') return 'OFFER_EXTENDED';
+      if (u === 'INTERVIEW') return 'INTERVIEW_SCHEDULED';
+      return u;
+    })
     .pipe(
       z.enum([
         'ALL',
@@ -34,6 +40,7 @@ export const getMyApplicationsQuerySchema = z.object({
         'UNDER_REVIEW',
         'SHORTLISTED',
         'INTERVIEW_SCHEDULED',
+        'SELECTED',
         'REJECTED',
         'OFFER_EXTENDED',
         'HIRED',

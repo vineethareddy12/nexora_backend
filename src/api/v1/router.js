@@ -29,6 +29,8 @@ import {
     adminEnquiriesRouter,
 } from '../../app/enquiries/enquiries.routes.js';
 
+import { adminReviewRouter } from '../../app/admin-review/admin-review.routes.js';
+
 const apiV1Router = Router();
 
 // Health checks
@@ -66,5 +68,8 @@ apiV1Router.use('/admin/jobs', adminJobsRouter);
 // Public contact form and protected enquiry management
 apiV1Router.use('/enquiries', publicEnquiriesRouter);
 apiV1Router.use('/admin/enquiries', adminEnquiriesRouter);
+
+// Administrator Applicant & Application Review Module
+apiV1Router.use('/admin', adminReviewRouter);
 
 export default apiV1Router;

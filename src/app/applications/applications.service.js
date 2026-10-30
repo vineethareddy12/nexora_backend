@@ -311,11 +311,15 @@ export const applicationsService = {
       throw AppError.badRequest(`Cannot withdraw application in status "${application.status}".`);
     }
 
-    const updated = await applicationsRepository.updateStatus(id, {
-      status: 'WITHDRAWN',
-      withdrawnAt: new Date(),
-      withdrawalReason: reason?.trim() || 'Withdrawn by candidate',
-    });
+    const previousStatus = application.status;
+    const cleanReason = reason?.trim() || 'Withdrawn by candidate';
+
+    const updated = await applicationsRepository.withdrawWithHistory(
+      id,
+      applicantId,
+      previousStatus,
+      cleanReason
+    );
 
     return {
       id: updated.id,

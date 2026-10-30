@@ -42,7 +42,11 @@ export const applicationsRepository = {
     const where = { applicantId };
 
     if (status && status !== 'ALL') {
-      where.status = status;
+      if (status === 'SELECTED' || status === 'OFFER_EXTENDED') {
+        where.status = { in: ['SELECTED', 'OFFER_EXTENDED'] };
+      } else {
+        where.status = status;
+      }
     }
 
     if (search && search.trim() !== '') {
@@ -164,6 +168,7 @@ export const applicationsRepository = {
       underReview: 0,
       shortlisted: 0,
       interview: 0,
+      selected: 0,
       offered: 0,
       rejected: 0,
       withdrawn: 0,
@@ -186,8 +191,10 @@ export const applicationsRepository = {
         case 'INTERVIEW_SCHEDULED':
           summary.interview = count;
           break;
+        case 'SELECTED':
         case 'OFFER_EXTENDED':
         case 'HIRED':
+          summary.selected = (summary.selected || 0) + count;
           summary.offered += count;
           break;
         case 'REJECTED':
@@ -219,6 +226,16 @@ export const applicationsRepository = {
       include: {
         job: true,
         documents: true,
+        statusHistory: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            previousStatus: true,
+            newStatus: true,
+            createdAt: true,
+            applicantVisibleRemarks: true,
+          },
+        },
       },
     });
   },
@@ -312,6 +329,35 @@ export const applicationsRepository = {
         withdrawnAt,
         withdrawalReason,
       },
+    });
+  },
+
+  /**
+   * Atomically withdraws an application and adds an entry to status history.
+   */
+  async withdrawWithHistory(id, applicantId, previousStatus, withdrawalReason) {
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.jobApplication.update({
+        where: { id },
+        data: {
+          status: 'WITHDRAWN',
+          withdrawnAt: new Date(),
+          withdrawalReason,
+          updatedAt: new Date(),
+        },
+      });
+
+      await tx.applicationStatusHistory.create({
+        data: {
+          applicationId: id,
+          previousStatus,
+          newStatus: 'WITHDRAWN',
+          changedById: applicantId,
+          applicantVisibleRemarks: withdrawalReason,
+        },
+      });
+
+      return updated;
     });
   },
 };

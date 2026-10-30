@@ -5,11 +5,17 @@ import { prisma } from '../database/prisma.js';
 export const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return next(AppError.unauthorized('Authentication required: Bearer token missing'));
+    let token = null;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.query?.token) {
+      token = req.query.token;
     }
 
-    const token = authHeader.split(' ')[1];
+    if (!token) {
+      return next(AppError.unauthorized('Authentication required: Bearer token missing'));
+    }
     const decoded = verifyAccessToken(token);
 
     if (!decoded || !decoded.userId) {
