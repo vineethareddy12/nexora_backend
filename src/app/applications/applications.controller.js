@@ -79,3 +79,4 @@ export class ApplicationsController {
 }
 
 export const applicationsController = new ApplicationsController();
+

@@ -32,3 +32,4 @@ applicantApplicationsRouter.post(
     applicationsController.withdrawApplication(req, res, next);
   }
 );
+

@@ -72,3 +72,4 @@ ALTER TABLE "job_applications" ADD CONSTRAINT "job_applications_resume_id_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "application_documents" ADD CONSTRAINT "application_documents_application_id_fkey" FOREIGN KEY ("application_id") REFERENCES "job_applications"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+

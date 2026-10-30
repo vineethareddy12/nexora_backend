@@ -449,3 +449,4 @@ runApplicationsVerificationSuite()
     console.error('Test suite failed with error:', err);
     process.exit(1);
   });
+

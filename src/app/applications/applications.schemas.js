@@ -14,3 +14,4 @@ export const submitApplicationSchema = z.object({
 export const withdrawApplicationSchema = z.object({
   reason: z.string().max(500).optional(),
 });
+
