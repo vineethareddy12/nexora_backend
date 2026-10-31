@@ -381,6 +381,53 @@ export const interviewsRepository = {
         data: { status: 'COMPLETED', updatedAt: new Date() },
       });
 
+      // Synchronize parent application status based on evaluation recommendation
+      const interviewRecord = await tx.interview.findUnique({
+        where: { id: interviewId },
+        select: { applicationId: true, round: true },
+      });
+
+      if (interviewRecord?.applicationId) {
+        const app = await tx.jobApplication.findUnique({
+          where: { id: interviewRecord.applicationId },
+          select: { status: true },
+        });
+
+        if (app && ['INTERVIEW_SCHEDULED', 'UNDER_REVIEW', 'SHORTLISTED'].includes(app.status)) {
+          let targetStatus = null;
+          let remarks = null;
+
+          if (data.recommendation === 'STRONG_HIRE') {
+            targetStatus = 'SELECTED';
+            remarks = `Candidate cleared ${interviewRecord.round} round with Strong Hire recommendation. Eligible for official offer.`;
+          } else if (data.recommendation === 'NOT_RECOMMENDED') {
+            targetStatus = 'REJECTED';
+            remarks = `Candidate did not clear ${interviewRecord.round} evaluation. Reason: ${data.overallFeedback || 'Evaluation criteria not met'}.`;
+          } else if (data.recommendation === 'RECOMMENDED') {
+            // Cleared round, ready for next round
+            targetStatus = 'INTERVIEW_SCHEDULED';
+            remarks = `Candidate cleared ${interviewRecord.round} round. Eligible for next evaluation round.`;
+          }
+
+          if (targetStatus && targetStatus !== app.status) {
+            await tx.jobApplication.update({
+              where: { id: interviewRecord.applicationId },
+              data: { status: targetStatus, updatedAt: new Date() },
+            });
+
+            await tx.applicationStatusHistory.create({
+              data: {
+                applicationId: interviewRecord.applicationId,
+                previousStatus: app.status,
+                newStatus: targetStatus,
+                changedById: adminId,
+                applicantVisibleRemarks: remarks,
+              },
+            });
+          }
+        }
+      }
+
       return feedback;
     });
   },
