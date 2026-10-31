@@ -11,6 +11,8 @@ adminInterviewsRouter.use(authenticate);
 adminInterviewsRouter.use(requireRole(['ADMIN']));
 
 adminInterviewsRouter.get('/dashboard', (req, res, next) => interviewsController.getDashboardMetrics(req, res, next));
+adminInterviewsRouter.get('/applications/:applicationId/pipeline', (req, res, next) => interviewsController.getCandidatePipeline(req, res, next));
+adminInterviewsRouter.post('/applications/:applicationId/final-decision', (req, res, next) => interviewsController.makeFinalDecision(req, res, next));
 adminInterviewsRouter.get('/', (req, res, next) => interviewsController.getInterviews(req, res, next));
 adminInterviewsRouter.post('/', (req, res, next) => interviewsController.scheduleInterview(req, res, next));
 adminInterviewsRouter.get('/:interviewId', (req, res, next) => interviewsController.getInterviewDetails(req, res, next));
@@ -20,5 +22,6 @@ adminInterviewsRouter.post('/:interviewId/feedback', (req, res, next) => intervi
 
 // ─── APPLICANT ROUTES ─────────────────────────────────────────────────────────
 applicantInterviewsRouter.use(authenticate);
+applicantInterviewsRouter.get('/applications/:applicationId/pipeline', (req, res, next) => interviewsController.getCandidatePipeline(req, res, next));
 applicantInterviewsRouter.get('/', (req, res, next) => interviewsController.getInterviews(req, res, next));
 applicantInterviewsRouter.get('/:interviewId', (req, res, next) => interviewsController.getInterviewDetails(req, res, next));

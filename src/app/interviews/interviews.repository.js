@@ -1,4 +1,5 @@
 import { prisma } from '../../core/database/prisma.js';
+import { getJobInterviewRounds, computePipelineProgression } from './rounds.config.js';
 
 const toDateSafe = (val) => {
   if (!val) return new Date();
@@ -381,7 +382,7 @@ export const interviewsRepository = {
         data: { status: 'COMPLETED', updatedAt: new Date() },
       });
 
-      // Synchronize parent application status based on evaluation recommendation
+      // Synchronize parent application status based on evaluation recommendation & complete pipeline progression
       const interviewRecord = await tx.interview.findUnique({
         where: { id: interviewId },
         select: { applicationId: true, round: true },
@@ -390,23 +391,33 @@ export const interviewsRepository = {
       if (interviewRecord?.applicationId) {
         const app = await tx.jobApplication.findUnique({
           where: { id: interviewRecord.applicationId },
-          select: { status: true },
+          include: {
+            job: true,
+            interviews: {
+              include: { feedbacks: true },
+            },
+          },
         });
 
         if (app && ['INTERVIEW_SCHEDULED', 'UNDER_REVIEW', 'SHORTLISTED'].includes(app.status)) {
           let targetStatus = null;
           let remarks = null;
 
-          if (data.recommendation === 'STRONG_HIRE') {
-            targetStatus = 'SELECTED';
-            remarks = `Candidate cleared ${interviewRecord.round} round with Strong Hire recommendation. Eligible for official offer.`;
-          } else if (data.recommendation === 'NOT_RECOMMENDED') {
+          if (data.recommendation === 'NOT_RECOMMENDED') {
             targetStatus = 'REJECTED';
             remarks = `Candidate did not clear ${interviewRecord.round} evaluation. Reason: ${data.overallFeedback || 'Evaluation criteria not met'}.`;
-          } else if (data.recommendation === 'RECOMMENDED') {
-            // Cleared round, ready for next round
-            targetStatus = 'INTERVIEW_SCHEDULED';
-            remarks = `Candidate cleared ${interviewRecord.round} round. Eligible for next evaluation round.`;
+          } else if (data.recommendation === 'RECOMMENDED' || data.recommendation === 'STRONG_HIRE') {
+            const configuredRounds = getJobInterviewRounds(app.job);
+            const progression = computePipelineProgression(configuredRounds, app.interviews);
+            const isAllRoundsCleared = progression.length > 0 && progression.every((r) => r.status === 'CLEARED');
+
+            if (isAllRoundsCleared) {
+              targetStatus = 'SELECTED';
+              remarks = `Candidate cleared all interview rounds for ${app.job.title}. Officially selected for employment offer.`;
+            } else {
+              targetStatus = 'INTERVIEW_SCHEDULED';
+              remarks = `Candidate cleared ${interviewRecord.round} round. Eligible for next evaluation round.`;
+            }
           }
 
           if (targetStatus && targetStatus !== app.status) {

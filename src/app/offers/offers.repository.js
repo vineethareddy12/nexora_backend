@@ -95,8 +95,21 @@ export const offersRepository = {
       prisma.jobOffer.count({ where }),
     ]);
 
+    const mappedOffers = offers.map((o) => {
+      let attachment = null;
+      let termsText = o.termsAndConditions || '';
+      try {
+        const parsed = JSON.parse(o.termsAndConditions);
+        if (parsed && typeof parsed === 'object') {
+          termsText = parsed.text || '';
+          attachment = parsed.attachment || null;
+        }
+      } catch {}
+      return { ...o, termsText, attachment };
+    });
+
     return {
-      offers,
+      offers: mappedOffers,
       pagination: {
         page: Number(page),
         limit: Number(limit),

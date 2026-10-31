@@ -4,6 +4,7 @@ import {
   rescheduleInterviewSchema,
   cancelInterviewSchema,
   interviewFeedbackSchema,
+  finalDecisionSchema,
 } from './interviews.schemas.js';
 
 export class InterviewsController {
@@ -100,6 +101,25 @@ export class InterviewsController {
         message: 'Interview feedback recorded successfully.',
         data: { feedback },
       });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getCandidatePipeline(req, res, next) {
+    try {
+      const pipeline = await interviewsService.getCandidatePipeline(req.params.applicationId, req.user);
+      res.status(200).json({ success: true, data: pipeline });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async makeFinalDecision(req, res, next) {
+    try {
+      const validated = finalDecisionSchema.parse(req.body);
+      const result = await interviewsService.makeFinalDecision(req.params.applicationId, validated, req.user);
+      res.status(200).json({ success: true, data: result });
     } catch (err) {
       next(err);
     }

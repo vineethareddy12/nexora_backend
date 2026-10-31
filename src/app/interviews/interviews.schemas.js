@@ -41,8 +41,14 @@ export const interviewFeedbackSchema = z.object({
   strengths: z.string().max(2000).optional().nullable(),
   areasForImprovement: z.string().max(2000).optional().nullable(),
   overallFeedback: z.string().min(5, 'Overall feedback must be at least 5 characters').max(3000),
-  recommendation: z.enum(['RECOMMENDED', 'NOT_RECOMMENDED', 'STRONG_HIRE', 'NEEDS_FURTHER_EVALUATION']),
+  recommendation: z.enum(['RECOMMENDED', 'NOT_RECOMMENDED', 'STRONG_HIRE', 'NEEDS_FURTHER_EVALUATION', 'HOLD']),
   outcome: z.string().max(50).optional().nullable(),
   isConfidential: z.boolean().default(true),
+});
+
+export const finalDecisionSchema = z.object({
+  decision: z.enum(['SELECTED', 'REJECTED']),
+  rejectionReason: z.string().max(1000).optional().nullable(),
+  remarks: z.string().max(1000).optional().nullable(),
 });
 

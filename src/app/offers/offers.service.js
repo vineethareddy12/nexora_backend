@@ -6,6 +6,7 @@ import { NotificationService } from '../notifications/notifications.service.js';
 import { EmailService } from '../../core/email/index.js';
 import { generateOfferLetterHtml } from './offers.pdf.js';
 import { env } from '../../core/config/env.js';
+import { storageService } from '../../core/storage/index.js';
 
 export const offersService = {
   /**
@@ -44,6 +45,24 @@ export const offersService = {
     return offersRepository.findOffers(params);
   },
 
+  parseOfferTerms(offer) {
+    if (!offer) return { termsText: '', attachment: null };
+    let termsText = offer.termsAndConditions || '';
+    let attachment = null;
+
+    try {
+      const parsed = JSON.parse(offer.termsAndConditions);
+      if (parsed && typeof parsed === 'object') {
+        termsText = parsed.text || '';
+        attachment = parsed.attachment || null;
+      }
+    } catch {
+      // Plain text terms
+    }
+
+    return { termsText, attachment };
+  },
+
   /**
    * Get single offer by ID (accessible by admin, or applicant owner)
    */
@@ -63,7 +82,12 @@ export const offersService = {
       throw AppError.notFound('Offer not found');
     }
 
-    return offer;
+    const { termsText, attachment } = this.parseOfferTerms(offer);
+    return {
+      ...offer,
+      termsText,
+      attachment,
+    };
   },
 
   /**
@@ -78,6 +102,13 @@ export const offersService = {
 
     if (!application) {
       throw AppError.notFound('Associated job application not found');
+    }
+
+    // Prompt Rule 8: Only candidates whose application status is SELECTED can receive an offer
+    if (application.status !== 'SELECTED') {
+      throw AppError.badRequest(
+        `Only candidates with status 'SELECTED' are eligible to receive a job offer. Current candidate status is '${application.status}'.`
+      );
     }
 
     // Check if an active offer already exists for this application
@@ -160,6 +191,19 @@ export const offersService = {
 
     if (offer.status !== 'DRAFT') {
       throw AppError.badRequest(`Cannot issue an offer with status '${offer.status}'`);
+    }
+
+    // Prompt Rule 8 & 11: Verify candidate is SELECTED
+    if (offer.application?.status !== 'SELECTED') {
+      throw AppError.badRequest(
+        `Only candidates with application status 'SELECTED' are eligible to receive an issued offer. Current status is '${offer.application?.status}'.`
+      );
+    }
+
+    // Prompt Rule 10 & 11: PDF attachment is mandatory before issuing
+    const { attachment } = this.parseOfferTerms(offer);
+    if (!attachment) {
+      throw AppError.badRequest('A signed offer letter PDF attachment is mandatory before issuing the offer. Please upload the PDF document.');
     }
 
     const issued = await offersRepository.issueOffer(id, adminUser.id);
@@ -347,6 +391,95 @@ export const offersService = {
       // Candidates only see non-draft offers
       status: params.status && params.status !== 'ALL' ? params.status : undefined,
     });
+  },
+
+  /**
+   * Admin: Upload PDF attachment for offer letter (Mandatory before issuing)
+   */
+  async uploadAttachment(offerId, file, adminUser) {
+    if (!file) {
+      throw AppError.badRequest('Please upload an offer letter PDF file.');
+    }
+
+    const offer = await offersRepository.findById(offerId);
+    if (!offer) {
+      throw AppError.notFound('Offer not found');
+    }
+
+    if (offer.status !== 'DRAFT') {
+      throw AppError.badRequest('Cannot replace or add attachment to an offer that has already been issued.');
+    }
+
+    // Save document securely using storageService
+    const savedDoc = await storageService.saveApplicantDocument({
+      userId: offer.applicantId,
+      filename: file.originalname,
+      buffer: file.buffer,
+      mimeType: 'application/pdf',
+      size: file.size,
+    });
+
+    const { termsText } = this.parseOfferTerms(offer);
+    const updatedTermsPayload = JSON.stringify({
+      text: termsText,
+      attachment: {
+        storageKey: savedDoc.storageKey,
+        originalFilename: savedDoc.originalFilename,
+        fileSizeBytes: savedDoc.fileSizeBytes,
+        mimeType: savedDoc.mimeType,
+        checksumSha256: savedDoc.checksumSha256,
+        uploadedAt: new Date().toISOString(),
+      },
+    });
+
+    const updated = await prisma.jobOffer.update({
+      where: { id: offerId },
+      data: {
+        termsAndConditions: updatedTermsPayload,
+        updatedAt: new Date(),
+      },
+      include: {
+        applicant: { select: { id: true, fullName: true, email: true } },
+        job: true,
+        application: true,
+      },
+    });
+
+    return {
+      ...updated,
+      ...this.parseOfferTerms(updated),
+    };
+  },
+
+  /**
+   * Admin & Applicant: Get secure stream or signed download URL for attached PDF
+   */
+  async getAttachmentDownload(offerId, user) {
+    const offer = await offersRepository.findById(offerId);
+    if (!offer) {
+      throw AppError.notFound('Offer not found');
+    }
+
+    // Role-based access control: Admin or the specific Applicant
+    if (user.role === 'APPLICANT') {
+      if (offer.applicantId !== user.id) {
+        throw AppError.forbidden('Access denied to this offer attachment');
+      }
+      if (offer.status === 'DRAFT') {
+        throw AppError.notFound('Offer not found');
+      }
+    }
+
+    const { attachment } = this.parseOfferTerms(offer);
+    if (!attachment || !attachment.storageKey) {
+      throw AppError.notFound('No PDF document has been attached to this offer.');
+    }
+
+    const download = await storageService.getDocumentDownload(attachment.storageKey);
+    return {
+      download,
+      filename: attachment.originalFilename || `Offer_Letter_${offer.offerCode}.pdf`,
+    };
   },
 
   /**

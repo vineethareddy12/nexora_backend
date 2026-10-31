@@ -134,6 +134,54 @@ export const offersController = {
   },
 
   /**
+   * Admin: Upload PDF attachment for offer letter
+   */
+  async uploadAttachment(req, res, next) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'PDF file is required' });
+      }
+      const updated = await offersService.uploadAttachment(req.params.id, req.file, req.user);
+      res.status(200).json({
+        success: true,
+        message: 'Offer letter PDF attached successfully',
+        data: updated,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Admin & Applicant: Download or get secure link for attached PDF
+   */
+  async downloadAttachment(req, res, next) {
+    try {
+      const { download, filename } = await offersService.getAttachmentDownload(req.params.id, req.user);
+
+      if (download.type === 'redirect') {
+        return res.json({ success: true, downloadUrl: download.url, filename });
+      }
+
+      if (download.type === 'stream') {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        return download.stream.pipe(res);
+      }
+
+      if (download.type === 'buffer') {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        return res.send(download.buffer);
+      }
+
+      res.status(404).json({ success: false, message: 'Attachment file not found' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
    * Preview / Print Offer Letter HTML
    */
   async previewOfferHtml(req, res, next) {

@@ -198,6 +198,36 @@ export class EmailService {
     });
   }
 
+  static async sendApplicationShortlisted({ to, candidateName, jobTitle, referenceNumber, firstRound, portalUrl }) {
+    const bodyContent = `
+      <p>Dear ${candidateName},</p>
+      <p>Great news! Your application for the <strong>${jobTitle}</strong> position (Reference: <code>${referenceNumber}</code>) has been <strong>SHORTLISTED</strong> by our recruitment committee.</p>
+      <div style="background: #ECFEFF; border: 1px solid #A5F3FC; border-radius: 8px; padding: 14px 18px; margin: 18px 0;">
+        <div style="font-size: 13px; color: #0E7490; text-transform: uppercase; font-weight: 700;">Interview Pipeline Initialized</div>
+        <div style="font-size: 16px; font-weight: 700; color: #0891B2; margin-top: 4px;">Next Stage: ${firstRound || 'Stage 1 Evaluation'} (Eligible)</div>
+      </div>
+      <p>Our talent acquisition team will schedule your interview coordinates shortly. You can track your interview rounds and access meeting coordinates directly in your candidate workspace.</p>
+    `;
+    const html = getEmailFrame({
+      title: `Application Shortlisted — ${jobTitle}`,
+      headline: 'Congratulations! You Have Been Shortlisted',
+      bodyContent,
+      ctaText: 'View Interview Schedules',
+      ctaUrl: portalUrl || `${PORTAL_BASE}/app/interviews`,
+    });
+    const text = `Dear ${candidateName},\n\nYou have been shortlisted for ${jobTitle} (Ref: ${referenceNumber}). Track your interview schedule at: ${portalUrl || `${PORTAL_BASE}/app/interviews`}`;
+
+    return this.sendAndLog({
+      to,
+      subject: `Shortlisted: ${jobTitle} [${referenceNumber}]`,
+      html,
+      text,
+      templateType: 'APPLICATION_SHORTLISTED',
+      relatedEntityType: 'JobApplication',
+      relatedEntityId: referenceNumber,
+    });
+  }
+
   static async sendInterviewScheduled({ to, candidateName, jobTitle, round, interviewDate, startTime, endTime, mode, meetingLinkOrLocation, instructions, portalUrl }) {
     const formattedDate = new Date(interviewDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     const bodyContent = `

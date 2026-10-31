@@ -1,6 +1,9 @@
 import { adminReviewRepository } from './admin-review.repository.js';
 import { storageService } from '../../core/storage/index.js';
 import { AppError } from '../../core/errors/AppError.js';
+import { NotificationService } from '../notifications/notifications.service.js';
+import { EmailService } from '../../core/email/index.js';
+import { getJobInterviewRounds } from '../interviews/rounds.config.js';
 
 export const PERMITTED_STATUS_TRANSITIONS = {
   SUBMITTED: ['UNDER_REVIEW', 'SHORTLISTED', 'REJECTED', 'WITHDRAWN'],
@@ -88,6 +91,42 @@ export const adminReviewService = {
       remarks,
       internalRemarks
     );
+
+    // Asynchronously notify candidate & dispatch email
+    if (newStatus === 'SHORTLISTED') {
+      const rounds = getJobInterviewRounds(application.job);
+      const firstRound = rounds[0]?.round || 'Screening';
+
+      NotificationService.notify({
+        recipientId: application.applicantId,
+        title: 'Application Shortlisted',
+        message: `Your application for ${application.job?.title} has been shortlisted. Interview pipeline initialized: ${firstRound} is eligible.`,
+        notificationType: 'INFO',
+        relatedEntityType: 'JobApplication',
+        relatedEntityId: id,
+      });
+
+      if (application.applicant?.email) {
+        EmailService.sendApplicationShortlisted({
+          to: application.applicant.email,
+          candidateName: application.applicant.fullName,
+          jobTitle: application.job?.title,
+          referenceNumber: application.referenceNumber,
+          firstRound,
+        }).catch((err) => console.error('[Email Error] Shortlisting email failed:', err.message));
+      }
+    } else {
+      if (application.applicant?.email) {
+        EmailService.sendApplicationStatusUpdate({
+          to: application.applicant.email,
+          candidateName: application.applicant.fullName,
+          jobTitle: application.job?.title,
+          referenceNumber: application.referenceNumber,
+          newStatus,
+          remarks,
+        }).catch((err) => console.error('[Email Error] Status update email failed:', err.message));
+      }
+    }
 
     return result;
   },
