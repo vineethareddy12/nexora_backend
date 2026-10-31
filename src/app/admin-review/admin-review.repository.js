@@ -22,6 +22,8 @@ export const adminReviewRepository = {
       closedJobs,
       offersIssued,
       offersAccepted,
+      totalInterviews,
+      upcomingInterviews,
       recentApplications,
     ] = await Promise.all([
       prisma.user.count({ where: { role: 'APPLICANT' } }),
@@ -51,6 +53,8 @@ export const adminReviewRepository = {
       }),
       prisma.jobOffer.count({ where: { status: 'ISSUED' } }),
       prisma.jobOffer.count({ where: { status: 'ACCEPTED' } }),
+      prisma.interview.count(),
+      prisma.interview.count({ where: { status: 'SCHEDULED' } }),
       prisma.jobApplication.findMany({
         take: 5,
         orderBy: { submittedAt: 'desc' },
@@ -98,6 +102,8 @@ export const adminReviewRepository = {
         openVacancies: openJobs, // backward compatibility
         offersIssued,
         offersAccepted,
+        totalInterviews,
+        upcomingInterviews,
       },
       recentApplications: recentApplications.map((app) => ({
         id: app.id,

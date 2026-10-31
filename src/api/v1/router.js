@@ -30,6 +30,10 @@ import {
 } from '../../app/enquiries/enquiries.routes.js';
 
 import { adminReviewRouter } from '../../app/admin-review/admin-review.routes.js';
+import { adminInterviewsRouter, applicantInterviewsRouter } from '../../app/interviews/interviews.routes.js';
+import { adminOffersRouter, applicantOffersRouter } from '../../app/offers/offers.routes.js';
+import { adminNotificationsRouter, applicantNotificationsRouter } from '../../app/notifications/notifications.routes.js';
+import { adminAuditRouter } from '../../app/audit/audit.routes.js';
 
 const apiV1Router = Router();
 
@@ -71,5 +75,23 @@ apiV1Router.use('/admin/enquiries', adminEnquiriesRouter);
 
 // Administrator Applicant & Application Review Module
 apiV1Router.use('/admin', adminReviewRouter);
+
+// Module 2: Interviews (Admin & Applicant)
+apiV1Router.use('/admin/interviews', adminInterviewsRouter);
+apiV1Router.use('/me/interviews', applicantInterviewsRouter);
+apiV1Router.use('/applicant/interviews', applicantInterviewsRouter);
+
+// Module 3: Offers (Admin & Applicant)
+apiV1Router.use('/admin/offers', adminOffersRouter);
+apiV1Router.use('/me/offers', applicantOffersRouter);
+apiV1Router.use('/applicant/offers', applicantOffersRouter);
+
+// Module 5: In-app Notifications & Email Logs
+apiV1Router.use('/me/notifications', applicantNotificationsRouter);
+apiV1Router.use('/applicant/notifications', applicantNotificationsRouter);
+apiV1Router.use('/admin/notifications', adminNotificationsRouter);
+
+// Module 6: System Audit Logs
+apiV1Router.use('/admin/audit-logs', adminAuditRouter);
 
 export default apiV1Router;

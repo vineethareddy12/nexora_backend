@@ -1,13 +1,26 @@
 import { prisma } from '../../core/database/prisma.js';
 
 export class JobsRepository {
-  async findPublished({ search, department, employmentType, workMode, location, skip, limit }) {
+  async findPublished({ search, department, employmentType, workMode, location, availability, skip, limit }) {
+    const now = new Date();
     const where = {
       status: 'PUBLISHED',
       ...(department ? { department: { equals: department, mode: 'insensitive' } } : {}),
       ...(employmentType ? { employmentType } : {}),
       ...(workMode ? { workMode } : {}),
       ...(location ? { location: { contains: location, mode: 'insensitive' } } : {}),
+      ...(availability === 'ACTIVE'
+        ? {
+            OR: [
+              { applicationDeadline: null },
+              { applicationDeadline: { gte: now } },
+            ],
+          }
+        : availability === 'EXPIRED'
+        ? {
+            applicationDeadline: { lt: now },
+          }
+        : {}),
       ...(search
         ? {
             OR: [
@@ -58,13 +71,26 @@ export class JobsRepository {
     });
   }
 
-  async findAllAdmin({ search, status, department, employmentType, workMode, location, skip, limit }) {
+  async findAllAdmin({ search, status, department, employmentType, workMode, location, availability, skip, limit }) {
+    const now = new Date();
     const where = {
       ...(status ? { status } : {}),
       ...(department ? { department: { equals: department, mode: 'insensitive' } } : {}),
       ...(employmentType ? { employmentType } : {}),
       ...(workMode ? { workMode } : {}),
       ...(location ? { location: { contains: location, mode: 'insensitive' } } : {}),
+      ...(availability === 'ACTIVE'
+        ? {
+            OR: [
+              { applicationDeadline: null },
+              { applicationDeadline: { gte: now } },
+            ],
+          }
+        : availability === 'EXPIRED'
+        ? {
+            applicationDeadline: { lt: now },
+          }
+        : {}),
       ...(search
         ? {
             OR: [

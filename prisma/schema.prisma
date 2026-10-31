@@ -33,10 +33,16 @@ model User {
   sessions          Session[]
   documents         ApplicantDocument[]
   applications      JobApplication[]
-  statusChanges     ApplicationStatusHistory[]
-  adminReviewNotes  ApplicationReviewNote[]
-  receivedOffers    JobOffer[]                  @relation("ApplicantOffers")
-  createdOffers     JobOffer[]                  @relation("AdminCreatedOffers")
+  statusChanges         ApplicationStatusHistory[]
+  adminReviewNotes      ApplicationReviewNote[]
+  receivedOffers        JobOffer[]                  @relation("ApplicantOffers")
+  createdOffers         JobOffer[]                  @relation("AdminCreatedOffers")
+  scheduledInterviews   Interview[]                 @relation("ApplicantInterviews")
+  createdInterviews     Interview[]                 @relation("AdminCreatedInterviews")
+  submittedFeedbacks    InterviewFeedback[]         @relation("InterviewerFeedbacks")
+  interviewHistories    InterviewScheduleHistory[]  @relation("InterviewHistoryAdmin")
+  offerStatusHistories  OfferStatusHistory[]        @relation("OfferStatusAdmin")
+  notifications         Notification[]              @relation("UserNotifications")
 
   @@index([role, status])
   @@map("users")
@@ -181,6 +187,7 @@ model Job {
 
   applications           JobApplication[]
   offers                 JobOffer[]
+  interviews             Interview[]
 
   @@index([status, applicationDeadline])
   @@index([department, workMode])
@@ -289,6 +296,7 @@ model JobApplication {
   documents             ApplicationDocumentSnapshot[]
   statusHistory         ApplicationStatusHistory[]
   reviewNotes           ApplicationReviewNote[]
+  interviews            Interview[]
   offer                 JobOffer?
 
   @@unique([applicantId, jobId])
@@ -377,9 +385,192 @@ model JobOffer {
   createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt          DateTime       @updatedAt @map("updated_at") @db.Timestamptz()
 
+  statusHistory      OfferStatusHistory[]
+
   @@index([applicantId, status])
   @@index([jobId, status])
   @@map("job_offers")
+}
+
+model OfferStatusHistory {
+  id                 String         @id @default(uuid()) @db.Uuid
+  offerId            String         @map("offer_id") @db.Uuid
+  offer              JobOffer       @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  changedById        String         @map("changed_by_id") @db.Uuid
+  changedBy          User           @relation("OfferStatusAdmin", fields: [changedById], references: [id])
+  previousStatus     OfferStatus    @map("previous_status")
+  newStatus          OfferStatus    @map("new_status")
+  remarks            String?        @db.Text
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([offerId])
+  @@map("offer_status_histories")
+}
+
+// ==========================================
+// 8. Interview Management (SRS Section 8)
+// ==========================================
+enum InterviewMode {
+  ONLINE
+  OFFLINE
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+model Interview {
+  id                    String                    @id @default(uuid()) @db.Uuid
+  interviewCode         String?                   @map("interview_code") @db.VarChar(50)
+  applicationId         String                    @map("application_id") @db.Uuid
+  application           JobApplication            @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicantId           String                    @map("applicant_id") @db.Uuid
+  applicant             User                      @relation("ApplicantInterviews", fields: [applicantId], references: [id], onDelete: Cascade)
+  jobId                 String                    @map("job_id") @db.Uuid
+  job                   Job                       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  createdById           String                    @map("created_by_id") @db.Uuid
+  createdBy             User                      @relation("AdminCreatedInterviews", fields: [createdById], references: [id])
+  round                 String                    @map("interview_round") @db.VarChar(100)
+  interviewDate         DateTime                  @map("interview_date") @db.Timestamptz()
+  startTime             String                    @map("start_time") @db.VarChar(20)
+  endTime               String                    @map("end_time") @db.VarChar(20)
+  mode                  InterviewMode             @default(ONLINE) @map("interview_mode")
+  meetingLinkOrLocation String                    @map("meeting_link_or_location") @db.Text
+  interviewerName       String?                   @map("interviewer_name") @db.VarChar(120)
+  interviewerEmail      String?                   @map("interviewer_email") @db.VarChar(255)
+  instructions          String?                   @db.Text
+  status                InterviewStatus           @default(SCHEDULED)
+  cancellationReason    String?                   @map("cancellation_reason") @db.Text
+  cancelledAt           DateTime?                 @map("cancelled_at") @db.Timestamptz()
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  feedbacks             InterviewFeedback[]
+  scheduleHistories     InterviewScheduleHistory[]
+
+  @@index([applicantId, status])
+  @@index([jobId, status])
+  @@index([interviewDate])
+  @@map("interviews")
+}
+
+model InterviewFeedback {
+  id                    String                    @id @default(uuid()) @db.Uuid
+  interviewId           String                    @map("interview_id") @db.Uuid
+  interview             Interview                 @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  submittedById         String                    @map("submitted_by_id") @db.Uuid
+  submittedBy           User                      @relation("InterviewerFeedbacks", fields: [submittedById], references: [id])
+  technicalRating       Int?                      @map("technical_score") @db.SmallInt
+  communicationRating   Int?                      @map("communication_score") @db.SmallInt
+  problemSolvingRating  Int?                      @map("problem_solving_score") @db.SmallInt
+  strengths             String?                   @db.Text
+  areasForImprovement   String?                   @map("areas_for_improvement") @db.Text
+  overallFeedback       String                    @map("overall_feedback") @db.Text
+  recommendation        String                    @db.VarChar(50)
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  @@index([interviewId])
+  @@map("interview_feedbacks")
+}
+
+model InterviewScheduleHistory {
+  id                    String                    @id @default(uuid()) @db.Uuid
+  interviewId           String                    @map("interview_id") @db.Uuid
+  interview             Interview                 @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  changedById           String                    @map("changed_by_id") @db.Uuid
+  changedBy             User                      @relation("InterviewHistoryAdmin", fields: [changedById], references: [id])
+  previousDate          DateTime                  @map("previous_date") @db.Timestamptz()
+  previousStartTime     String                    @map("previous_start_time") @db.VarChar(20)
+  previousEndTime       String                    @map("previous_end_time") @db.VarChar(20)
+  previousMode          InterviewMode?            @map("previous_mode")
+  previousLocation      String?                   @map("previous_location") @db.Text
+  newDate               DateTime                  @map("new_date") @db.Timestamptz()
+  newStartTime          String                    @map("new_start_time") @db.VarChar(20)
+  newEndTime            String                    @map("new_end_time") @db.VarChar(20)
+  newMode               InterviewMode?            @map("new_mode")
+  newLocation           String?                   @map("new_location") @db.Text
+  reason                String?                   @db.Text
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([interviewId])
+  @@map("interview_schedule_histories")
+}
+
+// ==========================================
+// 9. Notifications (SRS Section 11.1)
+// ==========================================
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ACTION_REQUIRED
+}
+
+model Notification {
+  id                    String                    @id @default(uuid()) @db.Uuid
+  recipientId           String                    @map("recipient_id") @db.Uuid
+  recipient             User                      @relation("UserNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  title                 String                    @db.VarChar(200)
+  message               String                    @db.Text
+  notificationType      NotificationType          @default(INFO) @map("notification_type")
+  relatedEntityType     String?                   @map("related_entity_type") @db.VarChar(60)
+  relatedEntityId       String?                   @map("related_entity_id") @db.VarChar(60)
+  isRead                Boolean                   @default(false) @map("is_read")
+  readAt                DateTime?                 @map("read_at") @db.Timestamptz()
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([recipientId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ==========================================
+// 10. Email Logs (SRS Section 11.2)
+// ==========================================
+model EmailLog {
+  id                    String                    @id @default(uuid()) @db.Uuid
+  recipientEmail        String                    @map("recipient_email") @db.VarChar(255)
+  subject               String                    @db.VarChar(255)
+  templateType          String                    @map("template_type") @db.VarChar(80)
+  relatedEntityType     String?                   @map("related_entity_type") @db.VarChar(60)
+  relatedEntityId       String?                   @map("related_entity_id") @db.VarChar(60)
+  deliveryStatus        String                    @default("SENT") @map("delivery_status") @db.VarChar(30)
+  providerMessageId     String?                   @map("provider_message_id") @db.VarChar(120)
+  failureReason         String?                   @map("failure_reason") @db.Text
+  sentAt                DateTime                  @default(now()) @map("sent_at") @db.Timestamptz()
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([recipientEmail])
+  @@index([templateType])
+  @@index([sentAt])
+  @@map("email_logs")
+}
+
+// ==========================================
+// 11. Audit Logs & Activity Tracking (SRS Section 11.3)
+// ==========================================
+model AuditLog {
+  id                    String                    @id @default(uuid()) @db.Uuid
+  actorId               String?                   @map("actor_id") @db.VarChar(100)
+  actorEmail            String?                   @map("actor_email") @db.VarChar(255)
+  actorRole             String?                   @map("actor_role") @db.VarChar(40)
+  action                String                    @db.VarChar(100)
+  entityType            String                    @map("entity_type") @db.VarChar(80)
+  entityId              String?                   @map("entity_id") @db.VarChar(80)
+  description           String                    @db.Text
+  metadata              Json?
+  ipAddress             String?                   @map("ip_address") @db.VarChar(60)
+  userAgent             String?                   @map("user_agent") @db.Text
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([actorId])
+  @@index([entityType, action])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 

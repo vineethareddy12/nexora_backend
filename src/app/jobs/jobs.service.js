@@ -11,6 +11,7 @@ export class JobsService {
       employmentType: query.employmentType,
       workMode: query.workMode,
       location: query.location?.trim(),
+      availability: query.availability,
       skip,
       limit,
     });
@@ -36,6 +37,7 @@ export class JobsService {
       employmentType: query.employmentType,
       workMode: query.workMode,
       location: query.location?.trim(),
+      availability: query.availability,
       skip,
       limit,
     });
