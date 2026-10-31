@@ -68,7 +68,7 @@ export const interviewsService = {
       adminUser.id
     );
 
-    // 3. Notifications & Email (Non-blocking)
+    // 3. Notifications & Email (Asynchronous / Non-blocking)
     NotificationService.notify({
       recipientId: application.applicantId,
       title: 'Interview Scheduled',
@@ -86,22 +86,21 @@ export const interviewsService = {
       relatedEntityId: interview.id,
     });
 
-    try {
-      await EmailService.sendInterviewScheduled({
-        to: application.applicant.email,
-        candidateName: application.applicant.fullName,
-        jobTitle: application.job.title,
-        round: payload.round,
-        interviewDate: payload.interviewDate,
-        startTime: payload.startTime,
-        endTime: payload.endTime,
-        mode: payload.mode,
-        meetingLinkOrLocation: payload.meetingLinkOrLocation,
-        instructions: payload.instructions,
-      });
-    } catch (mailErr) {
+    // Fire email asynchronously in background so client response is not delayed or hung by SMTP
+    EmailService.sendInterviewScheduled({
+      to: application.applicant.email,
+      candidateName: application.applicant.fullName,
+      jobTitle: application.job.title,
+      round: payload.round,
+      interviewDate: payload.interviewDate,
+      startTime: payload.startTime,
+      endTime: payload.endTime,
+      mode: payload.mode,
+      meetingLinkOrLocation: payload.meetingLinkOrLocation,
+      instructions: payload.instructions,
+    }).catch((mailErr) => {
       console.error('[Email Error] Failed to send interview scheduled email:', mailErr.message);
-    }
+    });
 
     // 4. Audit Log
     AuditLogService.log({
@@ -139,21 +138,20 @@ export const interviewsService = {
       relatedEntityId: id,
     });
 
-    try {
-      await EmailService.sendInterviewRescheduled({
-        to: existing.applicant.email,
-        candidateName: existing.applicant.fullName,
-        jobTitle: existing.job.title,
-        round: existing.round,
-        newDate: payload.interviewDate,
-        newStartTime: payload.startTime,
-        newEndTime: payload.endTime,
-        reason: payload.reason,
-        meetingLinkOrLocation: payload.meetingLinkOrLocation || existing.meetingLinkOrLocation,
-      });
-    } catch (mailErr) {
+    // Fire email asynchronously so response is instant
+    EmailService.sendInterviewRescheduled({
+      to: existing.applicant.email,
+      candidateName: existing.applicant.fullName,
+      jobTitle: existing.job.title,
+      round: existing.round,
+      newDate: payload.interviewDate,
+      newStartTime: payload.startTime,
+      newEndTime: payload.endTime,
+      reason: payload.reason,
+      meetingLinkOrLocation: payload.meetingLinkOrLocation || existing.meetingLinkOrLocation,
+    }).catch((mailErr) => {
       console.error('[Email Error] Failed to send interview rescheduled email:', mailErr.message);
-    }
+    });
 
     AuditLogService.log({
       actorId: adminUser.id,

@@ -14,13 +14,18 @@ export function getTransporter() {
   if (isGmail && env.SMTP_USER && env.SMTP_PASS) {
     // Specialized configuration for Gmail with App Password
     transporterInstance = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
         user: env.SMTP_USER,
         pass: env.SMTP_PASS.replace(/\s+/g, ''), // Strip spaces from Google App Password
       },
+      connectionTimeout: 10000,
+      greetingTimeout: 8000,
+      socketTimeout: 15000,
     });
-    console.log(`[Email] Configured Gmail SMTP transporter for: ${env.SMTP_USER}`);
+    console.log(`[Email] Configured Gmail SMTP transporter (smtp.gmail.com:465) for: ${env.SMTP_USER}`);
   } else if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) {
     // Standard SMTP transporter (SendGrid, Mailgun, Brevo, custom server)
     const port = env.SMTP_PORT || 587;
