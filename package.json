@@ -5,8 +5,8 @@
   "type": "module",
   "main": "src/server.js",
   "scripts": {
-    "start": "prisma migrate deploy && node prisma/seed.js && node src/server.js",
-    "build": "prisma generate && prisma migrate deploy",
+    "start": "node src/server.js",
+    "build": "prisma generate",
     "postinstall": "prisma generate",
     "dev": "node --watch src/server.js",
     "db:clean": "node scripts/clean-dummy-data.js",
