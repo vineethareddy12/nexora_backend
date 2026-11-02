@@ -81,19 +81,27 @@ export function getTransporter() {
                   (env.SMTP_USER && env.SMTP_USER.includes('@gmail.com'));
 
   if (isGmail && env.SMTP_USER && env.SMTP_PASS) {
-    // Specialized configuration for Gmail with App Password
+    // Explicit Gmail SMTP configuration with IPv4 enforcement (prevents Linux IPv6 DNS hang on cloud)
+    const port = env.SMTP_PORT ? parseInt(env.SMTP_PORT, 10) : 587;
+    const isSecure = port === 465;
+
     transporterInstance = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port,
+      secure: isSecure,
       auth: {
-        user: env.SMTP_USER,
+        user: env.SMTP_USER.trim(),
         pass: env.SMTP_PASS.replace(/\s+/g, ''), // Strip spaces from Google App Password
       },
-      connectionTimeout: 10000,
-      greetingTimeout: 8000,
-      socketTimeout: 15000,
+      tls: {
+        rejectUnauthorized: false,
+      },
+      family: 4, // CRITICAL: Force IPv4 on cloud hosts like Render to avoid IPv6 timeouts
+      connectionTimeout: 25000,
+      greetingTimeout: 20000,
+      socketTimeout: 30000,
     });
-    console.log(`[Email] Configured Gmail SMTP transporter for: ${env.SMTP_USER}`);
-    console.log('[Email Notice] Note: Render Free tier blocks outbound TCP on ports 25, 465, and 587. If connection timeouts occur on Render, configure RESEND_API_KEY or BREVO_API_KEY, or use SMTP on unblocked port 2525.');
+    console.log(`[Email] Configured Nodemailer Gmail SMTP (smtp.gmail.com:${port}, secure: ${isSecure}, IPv4 forced) for: ${env.SMTP_USER}`);
   } else if (env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS) {
     // Standard SMTP transporter (Brevo on 2525, SendGrid, Mailgun)
     const port = env.SMTP_PORT || 587;
