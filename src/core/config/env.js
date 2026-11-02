@@ -53,8 +53,10 @@ export const env = {
   ADMIN_DEFAULT_EMAIL: process.env.ADMIN_DEFAULT_EMAIL || 'admin@nexoratech.com',
   ADMIN_DEFAULT_PASSWORD: process.env.ADMIN_DEFAULT_PASSWORD || 'AdminSecurePass2026!',
 
-  // Email (SMTP)
+  // Email (SMTP & HTTP APIs)
   EMAIL_ENABLED: process.env.EMAIL_ENABLED !== 'false',
+  RESEND_API_KEY: process.env.RESEND_API_KEY || '',
+  BREVO_API_KEY: process.env.BREVO_API_KEY || '',
   SMTP_HOST: process.env.SMTP_HOST || '',
   SMTP_PORT: parseInt(process.env.SMTP_PORT, 10) || 587,
   SMTP_USER: process.env.SMTP_USER || '',
